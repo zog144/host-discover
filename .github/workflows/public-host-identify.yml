@@ -1,0 +1,39 @@
+name: Public host identity integration
+
+on:
+  push:
+    branches: [main, unstable]
+  pull_request:
+    branches: [main, unstable]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-host-identify:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+    steps:
+      - name: Check out host-discover
+        uses: actions/checkout@v4
+      - name: Check out reviewed public host-identify
+        uses: actions/checkout@v4
+        with:
+          repository: zog144/host-identify
+          ref: 1a5eac0b255c995022db6a3a4c0051efffa748cc
+          path: companions/host-identify
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install public host identity and local adapter
+        run: |
+          python -m pip install ./companions/host-identify 'pytest>=8,<10'
+          python -m pip install --no-deps .
+      - name: Verify exact public dependency
+        run: test "$(git -C companions/host-identify rev-parse HEAD)" = "1a5eac0b255c995022db6a3a4c0051efffa748cc"
+      - name: Run signed daemon, migration binding and archive role fixtures
+        run: python -m pytest -q tests/test_signed_daemon.py tests/test_migration_target.py tests/test_roles.py tests/test_destinations.py

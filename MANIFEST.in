@@ -1,0 +1,9 @@
+include README.md
+include LICENSE
+include THIRD-PARTY-NOTICES.md
+recursive-include LICENSES *.txt
+recursive-include docs *.md
+recursive-include deployment *.service *.socket
+recursive-include examples *.json
+recursive-include tests *.py *.json *.md
+recursive-include src/zog/host_discover/systemd *.service *.socket

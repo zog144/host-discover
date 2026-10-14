@@ -1,0 +1,148 @@
+name: Namespace and packaging validation
+
+on:
+  push:
+    branches:
+      - unstable
+      - main
+  pull_request:
+    branches:
+      - unstable
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate component package
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify clean public-source boundary
+        run: |
+          test ! -e COPYRIGHT
+          test ! -e AGENTS.md
+          test ! -e version-share-handoff.json
+          test ! -e publication
+          test ! -e tools
+          test -f LICENSE
+          test -f LICENSES/BSD-3-Clause.txt
+          test -f LICENSES/GPL-3.0-only.txt
+      - name: Install validation tooling
+        run: python -m pip install --upgrade pip setuptools wheel build pytest
+
+      - name: Compile Python sources and tests
+        run: python -m compileall -q src tests
+
+      - name: Run namespace and broker bridge regression guards
+        run: python -m pytest -q tests/test_namespace_layout.py tests/test_box_bridge.py
+
+      - name: Build component sdist and wheel
+        run: python -m build
+
+      - name: Inspect built artifacts
+        shell: python
+        run: |
+          import glob
+          import tarfile
+          import zipfile
+
+          wheels = glob.glob("dist/*.whl")
+          sdists = glob.glob("dist/*.tar.gz")
+          assert len(wheels) == 1, wheels
+          assert len(sdists) == 1, sdists
+
+          wheel = wheels[0]
+          sdist = sdists[0]
+
+          required_package_files = {
+              "zog/host_discover/__init__.py",
+              "zog/host_discover/__main__.py",
+              "zog/host_discover/daemon.py",
+              "zog/host_discover/box_bridge.py",
+              "zog/host_discover/roles.py",
+              "zog/host_discover/recovery.py",
+              "zog/host_discover/supervisor.py",
+          }
+          required_systemd_files = {
+              "zog/host_discover/systemd/host-discover.service",
+              "zog/host_discover/systemd/host-discover-beacon.service",
+              "zog/host_discover/systemd/host-discover-managed.service",
+              "zog/host_discover/systemd/host-discover-supervisor.socket",
+              "zog/host_discover/systemd/host-discover-supervisor@.service",
+          }
+
+          with zipfile.ZipFile(wheel) as archive:
+              names = set(archive.namelist())
+
+              missing = (required_package_files | required_systemd_files) - names
+              assert not missing, f"wheel missing runtime files: {sorted(missing)}"
+
+              assert "zog/__init__.py" not in names
+              assert not any(name.startswith("host_discover/") for name in names)
+              assert not any(name.startswith("tests/") for name in names)
+
+              entry_points = [
+                  name for name in names
+                  if name.endswith(".dist-info/entry_points.txt")
+              ]
+              assert len(entry_points) == 1, entry_points
+              entry_text = archive.read(entry_points[0]).decode("utf-8")
+              assert "host-discover = zog.host_discover.daemon:main" in entry_text
+              assert "host-discover-recovery = zog.host_discover.recovery:main" in entry_text
+              assert "host-discover-supervisor = zog.host_discover.supervisor:main" in entry_text
+
+          with tarfile.open(sdist, "r:gz") as archive:
+              names = archive.getnames()
+              assert any(name.endswith("/tests/test_namespace_layout.py") for name in names)
+              assert any(name.endswith("/src/zog/host_discover/daemon.py") for name in names)
+
+          print(f"validated wheel: {wheel}")
+          print(f"validated sdist: {sdist}")
+
+      - name: Verify source licenses in sdist
+        shell: python
+        run: |
+          import glob
+          import tarfile
+          with tarfile.open(glob.glob("dist/*.tar.gz")[0], "r:gz") as archive:
+              names = archive.getnames()
+              prefix = names[0].split("/", 1)[0]
+              files = {name[len(prefix)+1:] for name in names if name.startswith(prefix + "/")}
+              for path in ("LICENSE", "LICENSES/BSD-3-Clause.txt", "LICENSES/GPL-3.0-only.txt",
+                           "THIRD-PARTY-NOTICES.md", "tests/test_namespace_layout.py",
+                           "docs/host-discover/README.md"):
+                  assert path in files, path
+              assert "COPYRIGHT" not in files
+              assert "version-share-handoff.json" not in files
+      - name: Install wheel without sibling dependencies
+        run: python -m pip install --no-deps --force-reinstall dist/*.whl
+
+      - name: Validate installed namespace and package resources
+        run: |
+          cd "${RUNNER_TEMP}"
+          python - <<'PY'
+          import importlib.util
+          from importlib.resources import files
+
+          import zog.host_discover
+
+          assert zog.host_discover.__version__ == "0.4.7"
+          assert importlib.util.find_spec("host_discover") is None
+          assert files("zog.host_discover").joinpath(
+              "systemd", "host-discover.service"
+          ).is_file()
+          assert files("zog.host_discover").joinpath(
+              "systemd", "host-discover-supervisor.socket"
+          ).is_file()
+          PY
