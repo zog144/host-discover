@@ -141,8 +141,101 @@ class Runtime:
             self.sessions[rid]=session
         response=self.post(transport,reg,f'/api/hosts/{host}/heartbeat/',dict(report,managed_session=session['jti']),host)
         require(response.get('version')==2 and response.get('host_id')==host and response.get('managed_session')==session['jti'],'managed-heartbeat-response','Response binding mismatch')
+        capability=response.get('certificate_assignment')
+        if capability is not None:
+            require(
+                capability == {'version':1} and reg['role']=='control',
+                'certificate-assignment-capability',
+                'Invalid certificate assignment capability',
+            )
+            self.certificate_assignment(transport,reg,host,session)
         # Archive delivery and mirror role execution are intentionally not bridged
         # into legacy path-based writers. No credentials are persisted by this pass.
+
+    def certificate_assignment(self, transport, reg, host, session):
+        """Retrieve only from the authenticated control registry after opt-in."""
+        from .certificate_assignment import (
+            make_request, managed_commit, managed_read_state,
+            validate_envelope, validate_response, AssignmentError,
+        )
+        require(
+            reg['role'] == 'control',
+            'certificate-assignment-authority',
+            'Only the control registry can assign certificate authority',
+        )
+        row = self.saved['registries'][reg['registry_id']]
+        require(
+            row['public_key'] is not None,
+            'certificate-assignment-authority',
+            'Pinned station signing key required',
+        )
+        authority_key = signatures.public_key(row['public_key'])
+        require(
+            signatures.fingerprint(authority_key) != self.saved['fingerprint'],
+            'certificate-assignment-authority',
+            'Station authority must be distinct from host identity',
+        )
+        try:
+            previous = managed_read_state(
+                self.journal.fd,
+                authority_key,
+                expected_host=host,
+                expected_installation=self.saved['installation_id'],
+            )
+            request = make_request(
+                host,
+                previous,
+                installation_id=self.saved['installation_id'],
+                managed_session=session['jti'],
+            )
+            response = self.post(
+                transport,
+                reg,
+                f'/api/hosts/{host}/certificate-assignment/',
+                request,
+                host,
+            )
+            response = validate_response(
+                response,
+                known_revision=previous['revision'] if previous else 0,
+                expected_host=host,
+            )
+            if response['state'] == 'unassigned':
+                return {'status':'unassigned','revision':0}
+            if response['state'] == 'unchanged':
+                return {
+                    'status':'unchanged',
+                    'revision':previous['revision'],
+                }
+            assignment = validate_envelope(
+                response['envelope'],
+                authority_key,
+                expected_host=host,
+                expected_installation=self.saved['installation_id'],
+            )
+            require(
+                response['revision'] == assignment['revision'],
+                'certificate-assignment-response',
+                'Response revision mismatch',
+            )
+            state, changed = managed_commit(
+                self.journal.fd,
+                response['envelope'],
+                authority_key,
+                expected_host=host,
+                expected_installation=self.saved['installation_id'],
+            )
+            self.guard()
+            return {
+                'status':state['envelope']['assignment']['status'],
+                'revision':state['revision'],
+                'changed':changed,
+            }
+        except AssignmentError as exc:
+            raise StateError(
+                'certificate-assignment-invalid',
+                'Certificate assignment authority or state is invalid',
+            ) from exc
 
     def inspect_command(self,registry_id,token,gateway=None):
         """Restricted read-only control, only within a current control session."""

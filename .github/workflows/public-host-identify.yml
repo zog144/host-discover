@@ -35,5 +35,5 @@ jobs:
           python -m pip install --no-deps .
       - name: Verify exact public dependency
         run: test "$(git -C companions/host-identify rev-parse HEAD)" = "1a5eac0b255c995022db6a3a4c0051efffa748cc"
-      - name: Run signed daemon, migration binding and archive role fixtures
-        run: python -m pytest -q tests/test_signed_daemon.py tests/test_migration_target.py tests/test_roles.py tests/test_destinations.py
+      - name: Run signed daemon, certificate assignment and archive role fixtures
+        run: python -m pytest -q tests/test_signed_daemon.py tests/test_certificate_assignment.py tests/test_migration_target.py tests/test_roles.py tests/test_destinations.py

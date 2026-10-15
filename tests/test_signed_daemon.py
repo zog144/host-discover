@@ -83,3 +83,38 @@ def test_optional_custom_ca_is_passed_to_tls(configuration):
     with patch('ssl.create_default_context',side_effect=ValueError('test stop')) as tls:
         with pytest.raises(ValueError):announce(configuration,{'version':1})
     tls.assert_called_once_with(cafile='/operator-selected/ca.pem')
+
+
+
+def test_main_retrieves_certificate_assignment_separately_after_heartbeat(
+        configuration, tmp_path, monkeypatch):
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    authority=Ed25519PrivateKey.generate()
+    configuration['certificate_assignment']={
+        'authority_public_key':signatures.public_text(authority.public_key())
+    }
+    config=tmp_path/'configuration-certificate-assignment.json'
+    config.write_text(json.dumps(configuration))
+    calls=[]
+    monkeypatch.setattr(
+        'zog.host_discover.daemon.collect',
+        lambda _: {'version':1}
+    )
+    monkeypatch.setattr(
+        'zog.host_discover.daemon.announce',
+        lambda *_: calls.append('heartbeat')
+    )
+    monkeypatch.setattr(
+        'zog.host_discover.certificate_assignment.retrieve',
+        lambda _: calls.append('assignment') or {'status':'unassigned','revision':0}
+    )
+    monkeypatch.setattr(
+        'zog.host_discover.roles.Controller.tick',
+        lambda *_args,**_kwargs: {'state':'stopped'}
+    )
+    monkeypatch.setattr(
+        'sys.argv',
+        ['host-discover','--configuration',str(config),'--once']
+    )
+    main()
+    assert calls==['heartbeat','assignment']

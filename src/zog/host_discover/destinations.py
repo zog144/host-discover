@@ -43,7 +43,7 @@ def configurations(base,path):
         server=origin(row['server']);config=dict(base,server=server)
         if server!=primary:
             # No key, UUID, password, role adapter or archive authority is inherited.
-            for name in ('host_id','station_login_file','station_login_withdraw','mirror_box_control','archive_mirror','archive_issuer','archive_audience'):
+            for name in ('host_id','station_login_file','station_login_withdraw','mirror_box_control','archive_mirror','archive_issuer','archive_audience','certificate_assignment'):
                 config.pop(name,None)
             config['observer_only']=True
             other=root/('registry-'+hashlib.sha256(server.encode()).hexdigest())

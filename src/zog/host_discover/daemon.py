@@ -41,6 +41,8 @@ def validate_configuration(configuration):
         raise ValueError('Use staged migration: remove bearer token from signed daemon configuration')
     for name in ('identity_directory','credential_directory'):
         if not Path(configuration[name]).is_absolute():raise ValueError('Absolute state paths required')
+    from .certificate_assignment import validate_settings
+    validate_settings(configuration)
     if configuration.get('provider','generic') not in ('generic','aws'):
         raise ValueError('Unsupported provider')
     return configuration
@@ -221,6 +223,14 @@ def main():
                 if enabled:
                     announce(configuration,collect(configuration))
                     logging.info('Heartbeat accepted')
+                    if (configuration.get('certificate_assignment') is not None
+                            and not configuration.get('observer_only')):
+                        from .certificate_assignment import retrieve
+                        assignment = retrieve(configuration)
+                        logging.info(
+                            'Certificate assignment retrieval accepted (%s)',
+                            assignment['status'],
+                        )
                 else:withdraw(configuration)
             except Exception as error:
                 failed=True

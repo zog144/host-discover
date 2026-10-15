@@ -69,6 +69,7 @@ jobs:
               "zog/host_discover/__init__.py",
               "zog/host_discover/__main__.py",
               "zog/host_discover/daemon.py",
+              "zog/host_discover/certificate_assignment.py",
               "zog/host_discover/box_bridge.py",
               "zog/host_discover/roles.py",
               "zog/host_discover/recovery.py",
@@ -121,7 +122,8 @@ jobs:
               files = {name[len(prefix)+1:] for name in names if name.startswith(prefix + "/")}
               for path in ("LICENSE", "LICENSES/BSD-3-Clause.txt", "LICENSES/GPL-3.0-only.txt",
                            "THIRD-PARTY-NOTICES.md", "tests/test_namespace_layout.py",
-                           "docs/host-discover/README.md"):
+                           "docs/host-discover/README.md",
+                           "docs/host-discover/CERTIFICATE-ASSIGNMENT.md"):
                   assert path in files, path
               assert "COPYRIGHT" not in files
               assert "version-share-handoff.json" not in files
@@ -137,7 +139,7 @@ jobs:
 
           import zog.host_discover
 
-          assert zog.host_discover.__version__ == "0.4.7"
+          assert zog.host_discover.__version__ == "0.4.8"
           assert importlib.util.find_spec("host_discover") is None
           assert files("zog.host_discover").joinpath(
               "systemd", "host-discover.service"

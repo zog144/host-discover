@@ -9,7 +9,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from zog.host_install import state_inspect
 from zog.host_install.state_contract import StateError
 from zog.host_identify import signatures,managed as protocol
-from zog.host_discover import admission,managed_transport
+from zog.host_discover import admission,managed_transport,certificate_assignment
 
 B=json.loads((Path(__file__).parent/'fixtures/host-install/bundle.json').read_text())
 
@@ -203,3 +203,85 @@ def test_lost_session_response_is_reconciled_then_replaced(local):
         assert runtime.sessions['primary']['epoch']==2
         assert runtime.saved['registries']['primary']['pending'] is None
     finally:runtime.close()
+
+
+
+def test_control_registry_opt_in_retrieves_signed_certificate_assignment(local):
+    state,_=local
+
+    class AssignmentStation(Station):
+        def post(self,url,payload,key,subject,ca):
+            if url.endswith('/certificate-assignment/'):
+                self.calls.append(url)
+                assert payload['schema']==certificate_assignment.REQUEST_SCHEMA
+                assert payload['host_id']==self.host
+                assert payload['installation_id']==B['bootstrap']['installation_id']
+                assert payload['known_revision']==0
+                assert payload['known_operation_id'] is None
+                assert payload['managed_session']==self.last['jti']
+                now=int(time.time())
+                value={
+                    'schema':certificate_assignment.ASSIGNMENT_SCHEMA,
+                    'authority_origin':'command-center',
+                    'host_id':self.host,
+                    'installation_id':B['bootstrap']['installation_id'],
+                    'operation_id':str(uuid.uuid4()),
+                    'revision':1,
+                    'status':'approved',
+                    'approved_at':now-1,
+                    'revoked_at':None,
+                    'expires_at':now+3600,
+                    'certificate_id':'station-https',
+                    'hostnames':['station.hosts.example.test'],
+                    'contact_email':'acme@example.test',
+                    'acme_directory':'https://acme.example.test/directory',
+                    'challenge':'dns-01',
+                    'dns_mode':'local-cloudflare',
+                    'dns_zone':'hosts.example.test',
+                    'credential_id':'cloudflare-station',
+                    'credential_revision':1,
+                    'consumer':'station-access',
+                }
+                signature=self.key.sign(
+                    certificate_assignment._assignment_bytes(value)
+                )
+                import base64
+                envelope={
+                    'schema':certificate_assignment.ENVELOPE_SCHEMA,
+                    'key_id':signatures.fingerprint(self.key.public_key()),
+                    'assignment':value,
+                    'signature':base64.b64encode(signature).decode(),
+                }
+                return {
+                    'schema':certificate_assignment.RESPONSE_SCHEMA,
+                    'host_id':self.host,
+                    'state':'receipt',
+                    'revision':1,
+                    'envelope':envelope,
+                }
+            result=super().post(url,payload,key,subject,ca)
+            if url.endswith('/heartbeat/') and self.approved:
+                result['certificate_assignment']={'version':1}
+            return result
+
+    station=AssignmentStation();station.approved=True
+    runtime=prepared(state)
+    try:
+        runtime.tick(station,{'version':1,'hostname':'host'})
+        assert station.calls[-2].endswith('/heartbeat/')
+        assert station.calls[-1].endswith('/certificate-assignment/')
+        authority=signatures.public_key(
+            runtime.saved['registries']['primary']['public_key']
+        )
+        saved=certificate_assignment.managed_read_state(
+            runtime.journal.fd,
+            authority,
+            expected_host=station.host,
+            expected_installation=B['bootstrap']['installation_id'],
+        )
+        assert saved['revision']==1
+        assert saved['envelope']['assignment']['hostnames']==[
+            'station.hosts.example.test'
+        ]
+    finally:
+        runtime.close()

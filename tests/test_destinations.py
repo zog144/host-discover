@@ -10,7 +10,7 @@ def prepare(tmp_path):
     tmp_path.chmod(0o700)
     identity=tmp_path/'identity';identity.mkdir(mode=0o700)
     credentials=tmp_path/'credentials';credentials.mkdir(mode=0o750)
-    base=dict(server='https://primary.test',host_id='7379d8d3-257e-4f96-a1ef-7db62c814a81',identity_directory=str(identity),credential_directory=str(credentials),station_login_file='/private/password',mirror_box_control={'command':'private-adapter'},archive_mirror='https://mirror.test',archive_issuer='issuer',archive_audience='audience')
+    base=dict(server='https://primary.test',host_id='7379d8d3-257e-4f96-a1ef-7db62c814a81',identity_directory=str(identity),credential_directory=str(credentials),station_login_file='/private/password',mirror_box_control={'command':'private-adapter'},archive_mirror='https://mirror.test',archive_issuer='issuer',archive_audience='audience',certificate_assignment={'authority_public_key':'primary-only'})
     path=tmp_path/'destinations.json'
     rows=[dict(id=str(i),label='Registry',server=server,enabled=True,revision=1,ca_certificate='') for i,server in enumerate(['https://primary.test','https://secondary.test'])]
     storage.atomic(path,json.dumps(dict(version=1,destinations=rows)).encode())
@@ -23,7 +23,7 @@ def test_isolated_keys_binding_and_authority_survive_reinstall(tmp_path):
     pairs=configurations(base,path);primary=pairs[0][1];secondary=pairs[1][1]
     assert primary['identity_directory']==base['identity_directory'] and primary['host_id']==base['host_id']
     assert secondary['observer_only']
-    for field in ['host_id','station_login_file','mirror_box_control','archive_mirror','archive_issuer','archive_audience']:assert field not in secondary
+    for field in ['host_id','station_login_file','mirror_box_control','archive_mirror','archive_issuer','archive_audience','certificate_assignment']:assert field not in secondary
     key=storage.load_key(secondary['identity_directory']);fingerprint=signatures.fingerprint(key.public_key())
     assert fingerprint!=signatures.fingerprint(primary_key.public_key())
     repeated=configurations(base,path)[1][1]

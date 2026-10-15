@@ -2,7 +2,7 @@
   "schema": 2,
   "program": "host-discover",
   "python_package": "zog.host_discover",
-  "version": "0.4.7",
+  "version": "0.4.8",
   "scripts": {
     "host-discover": "zog.host_discover.daemon:main",
     "host-discover-recovery": "zog.host_discover.recovery:main",
@@ -23,4 +23,4 @@
     "LICENSES/GPL-3.0-only.txt",
     "THIRD-PARTY-NOTICES.md"
   ]
-}
+}\n

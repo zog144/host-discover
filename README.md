@@ -7,7 +7,7 @@ and current addresses to the station-access registry, handles explicit key
 approval, and optionally reconciles a leased archive-mirror role. It does not
 hold AWS account credentials or perform central DNS writes.
 
-This public source package is **0.4.7**. Its canonical repository is
+This public source package is **0.4.8**. Its canonical repository is
 [zog144/host-discover](https://github.com/zog144/host-discover). Consumers
 should pin an exact reviewed *public* commit; historical private Git commits
 have separate identities. host-deploy assembles its payload from an approved
@@ -88,6 +88,22 @@ features require a compatible tested deployment before use.
 Keep key/binding/role records, scoped grants, login exports and credentials out
 of source control. Configuration changes must preserve immutable host identity;
 never clear state merely to resolve a binding conflict.
+
+## Certificate hostname assignments (0.4.8)
+
+An enrolled command-center host can optionally retrieve a separately signed,
+versioned certificate/FQDN authority receipt from station-access without knowing
+an FQDN in advance. The retrieval is a distinct signed POST endpoint, not a
+heartbeat command. host-discover verifies a separately pinned assignment key,
+Host UUID, optional managed installation UUID, monotonic revision, expiry,
+revocation, DNS-zone scope and idempotent operation identity before retaining
+the receipt.
+
+The retained receipt is **not** a `certify-manage` authorization policy and
+contains no Cloudflare token. Root-controlled owner integration must separately
+check local-vs-central authority and current provider credential revision before
+constructing the existing issuer policy. See the
+[certificate assignment transport contract](docs/host-discover/CERTIFICATE-ASSIGNMENT.md).
 
 ## Tests
 
