@@ -6,7 +6,8 @@ This is the canonical navigation entry point for host-discover. It organizes cur
 
 - [Beacon and host inventory](guide/beacon-and-host-inventory.md)
 - [Live host export](guide/live-host-export.md)
-- [Station/archive automatic role lifecycle](STATION-ARCHIVE-ROLE-LIFECYCLE.md)\n- [Certificate hostname assignment transport](CERTIFICATE-ASSIGNMENT.md)
+- [Station/archive automatic role lifecycle](STATION-ARCHIVE-ROLE-LIFECYCLE.md)
+- [Certificate hostname assignment transport](CERTIFICATE-ASSIGNMENT.md)
 - [Managed state and sessions](guide/managed-state-and-sessions.md)
 - [Failure and recovery](guide/failure-and-recovery.md)
 - [Integration and verification](guide/integration-and-verification.md)
