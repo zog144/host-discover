@@ -465,7 +465,7 @@ def test_managed_assignment_state_binds_installation_and_blocks_partial_write(
             now=now,
         )
         assert again["revision"] == 1
-        with pytest.raises(AssignmentError, match="installation"):
+        with pytest.raises(AssignmentError, match="invalid-retained-assignment-state"):
             assignment.managed_read_state(
                 fd,
                 authority.public_key(),
