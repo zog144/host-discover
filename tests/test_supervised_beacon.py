@@ -29,6 +29,18 @@ def environment(tmp_path, monkeypatch):
         os.chown(home, 970, 970)
         for name in ('control','trust','registries','health'):
             os.chown(home/name, 970, 970)
+
+        # This synthetic fixture runs the root supervisor and UID-970 beacon in
+        # one Python process. Production creates these two journal inodes while
+        # already running as UID 970. Emulate only that creation ownership;
+        # metadata verification and all recovery fchown behavior stay real.
+        real_open = os.open
+        def service_owned_open(path, flags, mode=0o777, *, dir_fd=None):
+            fd = real_open(path, flags, mode, dir_fd=dir_fd)
+            if path in ('managed.lock', 'managed.pending') and flags & os.O_CREAT:
+                os.fchown(fd, 970, 970)
+            return fd
+        monkeypatch.setattr(os, 'open', service_owned_open)
     else:
         # Ordinary source-only unit runs cannot chown; adapt only the metadata
         # reader, never production ownership-changing code.

@@ -61,9 +61,13 @@ while the supervisor, outage/retry and recovery suites run under sudo because
 they invoke the production root-only preparation/reconciliation paths.
 
 In the privileged fixture path the synthetic host-discover STATE directories
-are actually chowned to UID/GID 970. The recovery implementation retains its
-real `fchown` behavior; only ordinary non-root unit runs use a narrow metadata
-reader adaptation so they can remain source-only.
+are actually chowned to UID/GID 970. Because the synthetic test keeps the root
+supervisor and UID-970 beacon in one Python process, it has one narrow creation
+shim: newly created `managed.lock` and `managed.pending` inodes are chowned to
+970, exactly as they would be by the real service identity. Ownership/mode
+verification is not mocked, and the recovery implementation retains its real
+`fchown` behavior. Ordinary non-root unit runs use only the pre-existing narrow
+metadata-reader adaptation so they can remain source-only.
 
 The same privileged step runs
 `tests/test_host_install_native_compatibility.py`. That fixture performs real
