@@ -9,6 +9,7 @@ This is the canonical navigation entry point for host-discover. It organizes cur
 - [Station/archive automatic role lifecycle](STATION-ARCHIVE-ROLE-LIFECYCLE.md)
 - [Certificate hostname assignment transport](CERTIFICATE-ASSIGNMENT.md)
 - [Managed state and sessions](guide/managed-state-and-sessions.md)
+- [host-install 0.10.0 compatibility](HOST-INSTALL-0.10-COMPATIBILITY.md)
 - [Failure and recovery](guide/failure-and-recovery.md)
 - [Integration and verification](guide/integration-and-verification.md)
 

@@ -7,7 +7,7 @@ and current addresses to the station-access registry, handles explicit key
 approval, and optionally reconciles a leased archive-mirror role. It does not
 hold AWS account credentials or perform central DNS writes.
 
-This public source package is **0.4.8**. Its canonical repository is
+This public source package is **0.4.9**. Its canonical repository is
 [zog144/host-discover](https://github.com/zog144/host-discover). Consumers
 should pin an exact reviewed *public* commit; historical private Git commits
 have separate identities. host-deploy assembles its payload from an approved
@@ -105,6 +105,22 @@ check local-vs-central authority and current provider credential revision before
 constructing the existing issuer policy. See the
 [certificate assignment transport contract](docs/host-discover/CERTIFICATE-ASSIGNMENT.md).
 
+## host-install 0.10.0 compatibility (0.4.9)
+
+The selected public host-install source is now
+`325b6c95320d04ad14b987f25e07c1361b7e6f04` (version 0.10.0).
+host-discover does not merely relax its dependency pin: public CI checks out
+that exact source together with the reviewed host-identify and box-control
+companions, validates the retained STATE fixture with the real 0.10.0 contract,
+runs the complete host-discover suite on Python 3.12 and 3.13, and runs a
+separate privileged native ownership fixture using real numeric ownership and
+mode operations.
+
+The fixed host-discover STATE identity remains UID/GID 970 with supplementary
+groups 972/973. Native mounted-STATE, NSS, SELinux, systemd and reboot acceptance
+remain separate Work gates. See
+[host-install 0.10.0 compatibility](docs/host-discover/HOST-INSTALL-0.10-COMPATIBILITY.md).
+
 ## Tests
 
 With the shared library and its dependencies installed, from this directory:
@@ -143,8 +159,9 @@ exponential backoff capped at 60 seconds. Local admission remains checked during
 waits. Pending session requests survive uncertain responses and clean offline
 shutdown; each HTTP attempt has a fresh signature nonce. TLS, authentication,
 protocol, storage and checkpoint failures still block and require investigation.
-No fault, identity or trust reset is automatic. Use the accepted host-install
-0.4.3 persistent-listener composition with graceful helper-safe stop; remote commands remain disabled. See the
+No fault, identity or trust reset is automatic. The outage behavior was originally accepted with host-install 0.4.3. The current
+0.4.9 source-compatibility gate pins host-install 0.10.0; graceful helper-safe
+stop remains required and remote commands remain disabled. See the
 [supervisor contract](docs/host-discover/BEACON-SUPERVISOR.md) for precise behavior and limits.
 
 Explicit expired-session recovery (0.4.5): see [operator procedure and contract](docs/host-discover/SESSION-RECOVERY.md). Recovery preserves faults; root reset remains separate.
@@ -160,7 +177,9 @@ live root PARTUUID, HOST-A/HOST-B generation identities, and any recorded
 transitional foreign boot-bundle identity.
 
 Legacy collection and caller-injected fixture reports are not upgraded or
-reinterpreted. The producer is host-install 0.4.4; host-discover does not infer
+reinterpreted. This producer contract was introduced against host-install 0.4.4;
+the selected current producer is host-install 0.10.0 at
+`325b6c95320d04ad14b987f25e07c1361b7e6f04`. host-discover does not infer
 inactive slots or treat the selected slot as booted.
 
 ## Public licensing and migration history
@@ -173,7 +192,7 @@ handoff reports and operational evidence were not imported.
 Local and public CI fixtures do not establish live host enrollment,
 native-systemd restart/reboot acceptance or production archive-role readiness.
 
-The public CI checks the repository-only bridge and package contracts, plus
-a bounded public host-identify integration suite. Full host-install,
-box-control and production acceptance must be revisited when compatible
-public source revisions exist.
+The public CI checks complete package closure, the reviewed host-identify
+integration, and an exact host-install 0.10.0 / box-control companion set.
+Production mounted-STATE, native systemd, reboot and deployment acceptance remain
+separate Work-owned gates.

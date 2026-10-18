@@ -56,6 +56,7 @@ jobs:
           import glob
           import tarfile
           import zipfile
+          from pathlib import Path
 
           wheels = glob.glob("dist/*.whl")
           sdists = glob.glob("dist/*.tar.gz")
@@ -65,29 +66,32 @@ jobs:
           wheel = wheels[0]
           sdist = sdists[0]
 
+          source_root = Path("src")
+          package_root = source_root / "zog" / "host_discover"
           required_package_files = {
-              "zog/host_discover/__init__.py",
-              "zog/host_discover/__main__.py",
-              "zog/host_discover/daemon.py",
-              "zog/host_discover/certificate_assignment.py",
-              "zog/host_discover/box_bridge.py",
-              "zog/host_discover/roles.py",
-              "zog/host_discover/recovery.py",
-              "zog/host_discover/supervisor.py",
+              path.relative_to(source_root).as_posix()
+              for path in package_root.rglob("*.py")
           }
           required_systemd_files = {
-              "zog/host_discover/systemd/host-discover.service",
-              "zog/host_discover/systemd/host-discover-beacon.service",
-              "zog/host_discover/systemd/host-discover-managed.service",
-              "zog/host_discover/systemd/host-discover-supervisor.socket",
-              "zog/host_discover/systemd/host-discover-supervisor@.service",
+              path.relative_to(source_root).as_posix()
+              for path in (package_root / "systemd").rglob("*")
+              if path.is_file()
           }
 
           with zipfile.ZipFile(wheel) as archive:
               names = set(archive.namelist())
 
-              missing = (required_package_files | required_systemd_files) - names
+              required_runtime = required_package_files | required_systemd_files
+              missing = required_runtime - names
               assert not missing, f"wheel missing runtime files: {sorted(missing)}"
+              assert len(required_package_files) == len(list(package_root.rglob("*.py")))
+              for suffix in (
+                  ".dist-info/licenses/LICENSE",
+                  ".dist-info/licenses/LICENSES/BSD-3-Clause.txt",
+                  ".dist-info/licenses/LICENSES/GPL-3.0-only.txt",
+                  ".dist-info/licenses/THIRD-PARTY-NOTICES.md",
+              ):
+                  assert any(name.endswith(suffix) for name in names), suffix
 
               assert "zog/__init__.py" not in names
               assert not any(name.startswith("host_discover/") for name in names)
@@ -105,8 +109,23 @@ jobs:
 
           with tarfile.open(sdist, "r:gz") as archive:
               names = archive.getnames()
-              assert any(name.endswith("/tests/test_namespace_layout.py") for name in names)
-              assert any(name.endswith("/src/zog/host_discover/daemon.py") for name in names)
+              prefix = names[0].split("/", 1)[0]
+              files = {
+                  name[len(prefix)+1:]
+                  for name in names
+                  if name.startswith(prefix + "/")
+              }
+              expected_source = {
+                  "src/" + path for path in required_package_files | required_systemd_files
+              }
+              missing_source = expected_source - files
+              assert not missing_source, (
+                  "sdist missing source/package-data files: "
+                  + repr(sorted(missing_source))
+              )
+              assert "tests/test_namespace_layout.py" in files
+              assert "tests/test_host_install_010_compatibility.py" in files
+              assert "tests/test_host_install_native_compatibility.py" in files
 
           print(f"validated wheel: {wheel}")
           print(f"validated sdist: {sdist}")
@@ -123,7 +142,8 @@ jobs:
               for path in ("LICENSE", "LICENSES/BSD-3-Clause.txt", "LICENSES/GPL-3.0-only.txt",
                            "THIRD-PARTY-NOTICES.md", "tests/test_namespace_layout.py",
                            "docs/host-discover/README.md",
-                           "docs/host-discover/CERTIFICATE-ASSIGNMENT.md"):
+                           "docs/host-discover/CERTIFICATE-ASSIGNMENT.md",
+                           "docs/host-discover/HOST-INSTALL-0.10-COMPATIBILITY.md"):
                   assert path in files, path
               assert "COPYRIGHT" not in files
               assert "version-share-handoff.json" not in files
@@ -139,7 +159,7 @@ jobs:
 
           import zog.host_discover
 
-          assert zog.host_discover.__version__ == "0.4.8"
+          assert zog.host_discover.__version__ == "0.4.9"
           assert importlib.util.find_spec("host_discover") is None
           assert files("zog.host_discover").joinpath(
               "systemd", "host-discover.service"

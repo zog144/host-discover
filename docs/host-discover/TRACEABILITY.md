@@ -6,6 +6,7 @@
 |---|---|---|
 | [BEACON-SUPERVISOR.md](BEACON-SUPERVISOR.md) | Beacon and host inventory; Managed state and sessions | Retained original text, including version/status declarations |
 | [HOST-INSTALL.md](HOST-INSTALL.md) | Beacon and host inventory; Integration and verification | Retained original text, including version/status declarations |
+| [HOST-INSTALL-0.10-COMPATIBILITY.md](HOST-INSTALL-0.10-COMPATIBILITY.md) | Managed state and sessions; Integration and verification | Current exact public companion compatibility and native ownership fixture contract |
 | [HOST-LIVE-EXPORT.md](HOST-LIVE-EXPORT.md) | Live host export | Retained original text, including version/status declarations |
 | [MANAGED-STATE.md](MANAGED-STATE.md) | Managed state and sessions | Retained original text, including version/status declarations |
 | [CERTIFICATE-ASSIGNMENT.md](CERTIFICATE-ASSIGNMENT.md) | Certificate hostname assignment transport; Integration and verification | Current command-center assignment/retrieval contract; no issuer-policy or DNS execution authority |
@@ -13,4 +14,4 @@
 | [SESSION-RECOVERY.md](SESSION-RECOVERY.md) | Failure and recovery | Retained original text, including version/status declarations |
 | [VALIDATION-HOST-INSTALL.md](VALIDATION-HOST-INSTALL.md) | Beacon and host inventory; Integration and verification | Retained original text, including version/status declarations |
 
-**Coverage:** 8 of 8 source Markdown documents mapped. Versioned schemas, historical evidence, and implementation claims require separate validation before prose is merged or deleted.
+**Coverage:** 9 of 9 source Markdown documents mapped. Versioned schemas, historical evidence, and implementation claims require separate validation before prose is merged or deleted.
