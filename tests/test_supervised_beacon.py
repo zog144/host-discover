@@ -189,6 +189,10 @@ def test_running_journal_change_blocks_before_network(environment):
 def test_control_directory_replacement_blocks(environment):
     state,_,root=environment;runtime=beacon.Beacon(state).open()
     path=root/'host-discover/control';path.rename(root/'host-discover/old-control');path.mkdir(mode=0o700)
+    if os.geteuid() == 0:
+        # Keep ownership valid so this test reaches the inode-replacement guard
+        # rather than stopping earlier at the ownership/mode guard.
+        os.chown(path, 970, 970)
     with pytest.raises(StateError,match='managed-directory-changed'):runtime.tick(Station(),{'version':1})
     runtime.close()
 
