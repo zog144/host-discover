@@ -14,9 +14,15 @@ from test_managed_admission import Station
 @pytest.fixture
 def expired(environment,monkeypatch):
     state,observation,root=environment
-    # Synthetic account evidence, same convention as the existing joint fixtures.
-    original=recovery.atomic
-    monkeypatch.setattr(recovery,'atomic',lambda fd,n,v,t,u,g:original(fd,n,v,t,0,0))
+    # Non-root source-only runs cannot chown synthetic STATE. Privileged
+    # compatibility CI uses recovery.atomic unchanged and exercises real
+    # uid/gid 970 publication.
+    if os.geteuid() != 0:
+        original=recovery.atomic
+        monkeypatch.setattr(
+            recovery, 'atomic',
+            lambda fd,n,v,t,u,g: original(fd,n,v,t,0,0)
+        )
     station=Station();station.approved=True;runtime=beacon.Beacon(state).open()
     runtime.tick(station,{'version':1});runtime.sessions.clear()
     call=station.post

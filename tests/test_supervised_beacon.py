@@ -24,12 +24,20 @@ def environment(tmp_path, monkeypatch):
     monkeypatch.setattr(supervisor.wire, 'observe', lambda _: copy.deepcopy(observation))
     monkeypatch.setattr(supervisor.wire, 'bindings', lambda _: copy.deepcopy(observation['bindings']))
     monkeypatch.setattr(admission, 'observe', lambda _: copy.deepcopy(observation))
-    metadata = state_inspect.metadata; read = admission.read_at
-    adapted = lambda fd,u,g,m,*a:metadata(fd,os.geteuid(),os.getegid(),m,*a)
-    monkeypatch.setattr(supervisor, 'metadata', adapted)
-    monkeypatch.setattr(state_inspect, 'metadata', adapted)
-    monkeypatch.setattr(admission, 'metadata', adapted)
-    monkeypatch.setattr(admission, 'read_at', lambda fd,n,*a:read(fd,n,os.geteuid(),os.getegid(),0o600))
+    if os.geteuid() == 0:
+        # Privileged compatibility CI uses the real fixed STATE ownership.
+        os.chown(home, 970, 970)
+        for name in ('control','trust','registries','health'):
+            os.chown(home/name, 970, 970)
+    else:
+        # Ordinary source-only unit runs cannot chown; adapt only the metadata
+        # reader, never production ownership-changing code.
+        metadata = state_inspect.metadata; read = admission.read_at
+        adapted = lambda fd,u,g,m,*a:metadata(fd,os.geteuid(),os.getegid(),m,*a)
+        monkeypatch.setattr(supervisor, 'metadata', adapted)
+        monkeypatch.setattr(state_inspect, 'metadata', adapted)
+        monkeypatch.setattr(admission, 'metadata', adapted)
+        monkeypatch.setattr(admission, 'read_at', lambda fd,n,*a:read(fd,n,os.geteuid(),os.getegid(),0o600))
     state.producer=SimpleNamespace(fd=state.fd,bundle=state.bundle,recheck=lambda:None)
     supervisor.prepare(state.producer, B['bootstrap']['state']['state_volume_id'])
     class Local(supervisor.Client):

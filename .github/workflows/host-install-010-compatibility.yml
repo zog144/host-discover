@@ -76,9 +76,18 @@ jobs:
       - name: Compile source and tests
         run: python -m compileall -q src tests
 
-      - name: Run full source-level host-discover suite
-        run: python -m pytest -q tests
-
-      - name: Run native ownership fixture with real privileged operations
+      - name: Run nonprivileged source-level host-discover suite
         run: |
-          sudo --preserve-env=PATH "$(command -v python)" -m pytest -q             tests/test_host_install_native_compatibility.py
+          python -m pytest -q tests \
+            --ignore=tests/test_network_retry.py \
+            --ignore=tests/test_session_recovery.py \
+            --ignore=tests/test_supervised_beacon.py \
+            --ignore=tests/test_host_install_native_compatibility.py
+
+      - name: Run privileged STATE and recovery fixtures with real ownership
+        run: |
+          sudo --preserve-env=PATH "$(command -v python)" -m pytest -q \
+            tests/test_network_retry.py \
+            tests/test_session_recovery.py \
+            tests/test_supervised_beacon.py \
+            tests/test_host_install_native_compatibility.py

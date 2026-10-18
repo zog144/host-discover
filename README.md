@@ -112,9 +112,9 @@ The selected public host-install source is now
 host-discover does not merely relax its dependency pin: public CI checks out
 that exact source together with the reviewed host-identify and box-control
 companions, validates the retained STATE fixture with the real 0.10.0 contract,
-runs the complete host-discover suite on Python 3.12 and 3.13, and runs a
-separate privileged native ownership fixture using real numeric ownership and
-mode operations.
+runs the ordinary source-level suite unprivileged, and runs the root-only
+supervisor/recovery suites plus a native ownership fixture under sudo using real
+numeric ownership and mode operations on Python 3.12 and 3.13.
 
 The fixed host-discover STATE identity remains UID/GID 970 with supplementary
 groups 972/973. Native mounted-STATE, NSS, SELinux, systemd and reboot acceptance

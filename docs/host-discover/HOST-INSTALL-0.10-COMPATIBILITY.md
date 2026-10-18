@@ -55,14 +55,22 @@ The retained host-discover synthetic bundle is validated by the actual 0.10.0
 
 `.github/workflows/host-install-010-compatibility.yml` checks out the exact
 three public companion commits above on Python 3.12 and 3.13. It installs those
-sources, compiles host-discover and runs the complete source-level test suite.
+sources and compiles host-discover. Tests are deliberately separated by
+privilege: ordinary source-level tests run as the unprivileged Actions account,
+while the supervisor, outage/retry and recovery suites run under sudo because
+they invoke the production root-only preparation/reconciliation paths.
 
-A separate root invocation runs
-`tests/test_host_install_native_compatibility.py` on the disposable runner. That
-fixture performs real numeric ownership/mode operations through host-install's
-`ensure_directory`, `metadata`, `lock`, `publish` and `raw` functions. No
-UID, `chown`, ownership metadata or permission setter is mocked. It also proves
-that a pre-existing wrongly owned/mode STATE directory is rejected without being
+In the privileged fixture path the synthetic host-discover STATE directories
+are actually chowned to UID/GID 970. The recovery implementation retains its
+real `fchown` behavior; only ordinary non-root unit runs use a narrow metadata
+reader adaptation so they can remain source-only.
+
+The same privileged step runs
+`tests/test_host_install_native_compatibility.py`. That fixture performs real
+numeric ownership/mode operations through host-install's `ensure_directory`,
+`metadata`, `lock`, `publish` and `raw` functions. No UID, `chown`,
+ownership metadata or permission setter is mocked there. It also proves that a
+pre-existing wrongly owned/mode STATE directory is rejected without being
 repaired in place.
 
 This is intentionally narrower than live production acceptance. It does not

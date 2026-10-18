@@ -46,7 +46,7 @@ def test_state_contract_keeps_host_discover_numeric_ownership():
 
 def test_retained_host_install_fixture_validates_under_010_contract():
     bundle = json.loads(BUNDLE.read_text())
-    assert state_contract.validate(bundle) is None
+    assert state_contract.validate(bundle) == bundle
 
 
 def test_host_discover_imported_host_install_api_surface_is_present():
