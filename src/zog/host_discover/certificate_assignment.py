@@ -69,6 +69,11 @@ def _digest(value: dict) -> str:
     return hashlib.sha256(_canonical(value)).hexdigest()
 
 
+def assignment_digest(value: dict) -> str:
+    """Public digest used by the root-owned authority checkpoint."""
+    return _digest(value)
+
+
 def _uuid(value: object, code: str) -> str:
     try:
         parsed = str(uuid.UUID(value))
@@ -730,9 +735,16 @@ def managed_read_state(
     *,
     expected_host: str,
     expected_installation: str,
+    expected_uid: int | None = None,
     now: float | None = None,
 ) -> dict | None:
-    """Read separately persisted assignment state under an already anchored fd."""
+    """Read assignment state under an anchored fd.
+
+    The normal managed daemon binds the record owner to the already anchored
+    control-directory owner.  The protected root supervisor passes
+    expected_uid=970 explicitly so it can independently verify the fixed
+    service identity instead of trusting caller-supplied bytes.
+    """
     names = set(os.listdir(directory_fd))
     if _MANAGED_PENDING in names or _MANAGED_NEXT in names:
         raise AssignmentError("managed-assignment-write-incomplete")
@@ -745,9 +757,10 @@ def managed_read_state(
     )
     try:
         info = os.fstat(fd)
+        owner_uid = os.fstat(directory_fd).st_uid if expected_uid is None else expected_uid
         if (
             not stat.S_ISREG(info.st_mode)
-            or info.st_uid != os.geteuid()
+            or info.st_uid != owner_uid
             or stat.S_IMODE(info.st_mode) != 0o600
             or info.st_nlink != 1
             or info.st_size > _MAX_STATE

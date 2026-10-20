@@ -44,7 +44,11 @@ validation.
 
 For the supervised managed beacon, the assignment signature key is the exact
 control-registry public key already bound into the protected managed session
-journal. Existing managed deployments are not forced onto the new endpoint.
+journal. Before that key may authorize a root-owned certificate consumer,
+0.4.10 additionally requires the same public key to be installed independently
+in root-owned host-install configuration. The root supervisor rejects a managed
+journal key that differs from that pin. Existing managed deployments are not
+forced onto the new endpoint.
 The authenticated heartbeat may advertise only the capability:
 
 ```json
@@ -242,12 +246,16 @@ policy or provider secret. The downstream owner must reject a conflicting
 standalone-local grant or changed credential version until the corresponding
 local authorization is explicitly revalidated.
 
-The host-discover state is owned by host-discover and is therefore not the
-root owner's anti-rollback ledger. Before installing or renewing issuer policy,
-the root-controlled consumer must independently verify the detached signature
-and persist the highest accepted authority revision/operation binding in its own
-protected state. Rolling host-discover state back must never make an older
-receipt acceptable to that owner.
+The UID-970 host-discover state is not the root owner's anti-rollback ledger.
+0.4.10 therefore adds a root-supervisor checkpoint which independently reopens
+the anchored service-owned receipt, verifies it against a separately installed
+root-owned assignment-key pin, and persists an independent root history at
+`/state/host-discover-certificate-authority/authority.json`.
+
+That root observation is still not issuer policy: the host owner must bind it
+to the exact local consumer and policy digest before installing or renewing.
+Rolling the UID-970 assignment state back cannot roll the root checkpoint back.
+See [CERTIFICATE-AUTHORITY-OWNER-HANDOFF.md](CERTIFICATE-AUTHORITY-OWNER-HANDOFF.md).
 
 ## Expiry and revocation behavior
 
@@ -302,7 +310,9 @@ provider-zone scope, credential revision changes and cached-state behavior
 during transport failure.
 
 The full managed dependency suite additionally covers opt-in retrieval through
-the protected control registry and anchored managed state.
+the protected control registry and anchored managed state. The privileged
+supervisor suite covers the 0.4.10 root-owned assignment-key pin, root
+checkpoint, signed revocation and rollback rejection.
 
 These source tests perform no DNS provider writes, public ACME issuance or
 production TLS cutover.

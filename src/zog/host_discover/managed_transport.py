@@ -86,6 +86,10 @@ class Runtime:
         self.guard()
         return result
 
+    def authority_checkpoint(self):
+        """Production Beacon overrides this with a root-supervisor checkpoint."""
+        return None
+
     def transport_failure(self,error):
         self.fail(error)
 
@@ -203,6 +207,8 @@ class Runtime:
             if response['state'] == 'unassigned':
                 return {'status':'unassigned','revision':0}
             if response['state'] == 'unchanged':
+                self.authority_checkpoint()
+                self.guard()
                 return {
                     'status':'unchanged',
                     'revision':previous['revision'],
@@ -225,6 +231,11 @@ class Runtime:
                 expected_host=host,
                 expected_installation=self.saved['installation_id'],
             )
+            self.guard()
+            # The protected root supervisor re-reads the anchored service-owned
+            # assignment and station key.  No assignment bytes are supplied by
+            # this unprivileged caller.
+            self.authority_checkpoint()
             self.guard()
             return {
                 'status':state['envelope']['assignment']['status'],

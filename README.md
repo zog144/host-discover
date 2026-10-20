@@ -7,7 +7,7 @@ and current addresses to the station-access registry, handles explicit key
 approval, and optionally reconciles a leased archive-mirror role. It does not
 hold AWS account credentials or perform central DNS writes.
 
-This public source package is **0.4.9**. Its canonical repository is
+This public source package is **0.4.10**. Its canonical repository is
 [zog144/host-discover](https://github.com/zog144/host-discover). Consumers
 should pin an exact reviewed *public* commit; historical private Git commits
 have separate identities. host-deploy assembles its payload from an approved
@@ -89,7 +89,7 @@ Keep key/binding/role records, scoped grants, login exports and credentials out
 of source control. Configuration changes must preserve immutable host identity;
 never clear state merely to resolve a binding conflict.
 
-## Certificate hostname assignments (0.4.8)
+## Certificate hostname assignments and root checkpoint (0.4.10)
 
 An enrolled command-center host can optionally retrieve a separately signed,
 versioned certificate/FQDN authority receipt from station-access without knowing
@@ -99,11 +99,23 @@ Host UUID, optional managed installation UUID, monotonic revision, expiry,
 revocation, DNS-zone scope and idempotent operation identity before retaining
 the receipt.
 
-The retained receipt is **not** a `certify-manage` authorization policy and
-contains no Cloudflare token. Root-controlled owner integration must separately
-check local-vs-central authority and current provider credential revision before
-constructing the existing issuer policy. See the
-[certificate assignment transport contract](docs/host-discover/CERTIFICATE-ASSIGNMENT.md).
+The retained UID-970 receipt is **not** a `certify-manage` authorization
+policy and contains no Cloudflare token. In 0.4.10 the managed beacon asks the
+existing root supervisor to independently reopen that receipt, require a
+separately installed root-owned command-center signing-key pin, reverify the
+detached envelope and exact Host/installation binding, and persist its own
+anti-rollback observation at
+`/state/host-discover-certificate-authority/authority.json` (root:root 0600).
+
+The root observation still does not choose a local service or policy digest.
+host-deploy must bind it to the exact approved local consumer and
+`policy_sha256` before creating its owner authority receipt. Standalone-local
+administrator authority remains a separate station-access/host-owner path.
+
+See the
+[certificate assignment transport contract](docs/host-discover/CERTIFICATE-ASSIGNMENT.md)
+and the
+[root-owned authority handoff](docs/host-discover/CERTIFICATE-AUTHORITY-OWNER-HANDOFF.md).
 
 ## host-install 0.10.0 compatibility (0.4.9)
 

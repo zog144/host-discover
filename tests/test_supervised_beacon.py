@@ -1,8 +1,11 @@
 """Real durable files, synthetic verified mount/account evidence; no live acceptance."""
+import base64
 import copy
 import hashlib
 import json
 import os
+import stat
+import time
 import uuid
 from pathlib import Path
 from types import SimpleNamespace
@@ -11,7 +14,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from zog.host_install.state_contract import StateError, canonical
 from zog.host_install import state_inspect
 from zog.host_identify import signatures
-from zog.host_discover import supervisor, beacon, admission, beacon_state
+from zog.host_discover import supervisor, beacon, admission, beacon_state, certificate_assignment
 from test_managed_admission import State, Station, B
 
 
@@ -37,7 +40,7 @@ def environment(tmp_path, monkeypatch):
         real_open = os.open
         def service_owned_open(path, flags, mode=0o777, *, dir_fd=None):
             fd = real_open(path, flags, mode, dir_fd=dir_fd)
-            if path in ('managed.lock', 'managed.pending') and flags & os.O_CREAT:
+            if path in ('managed.lock', 'managed.pending', 'certificate-assignment.pending') and flags & os.O_CREAT:
                 os.fchown(fd, 970, 970)
             return fd
         monkeypatch.setattr(os, 'open', service_owned_open)
@@ -305,3 +308,125 @@ def test_actual_client_wire_roundtrip(environment,monkeypatch,tmp_path):
         assert result['journal_sha256'] is None
         t.join(5);assert not t.is_alive() and not errors
     finally:os.close(parentfd);right.close();left.close()
+
+
+@pytest.mark.skipif(
+    os.geteuid() != 0,
+    reason='root-owned certificate authority checkpoint requires root fixture',
+)
+def test_signed_certificate_authority_is_root_checkpointed_and_rollback_blocked(
+        environment, monkeypatch, tmp_path):
+    state,_,root=environment
+
+    class AssignmentStation(Station):
+        def __init__(self):
+            super().__init__()
+            self.assignment_revision=1
+            self.assignment_status='approved'
+            self.assignment_operation=str(uuid.uuid4())
+
+        def post(self,url,payload,key,subject,ca):
+            if url.endswith('/certificate-assignment/'):
+                now=int(time.time())
+                value={
+                    'schema':certificate_assignment.ASSIGNMENT_SCHEMA,
+                    'authority_origin':'command-center',
+                    'host_id':self.host,
+                    'installation_id':B['bootstrap']['installation_id'],
+                    'operation_id':self.assignment_operation,
+                    'revision':self.assignment_revision,
+                    'status':self.assignment_status,
+                    'approved_at':now-60,
+                    'revoked_at':now-1 if self.assignment_status=='revoked' else None,
+                    'expires_at':now+3600,
+                    'certificate_id':'station-https',
+                    'hostnames':['station.hosts.example.test'],
+                    'contact_email':'acme@example.test',
+                    'acme_directory':'https://acme.example.test/directory',
+                    'challenge':'dns-01',
+                    'dns_mode':'local-cloudflare',
+                    'dns_zone':'hosts.example.test',
+                    'credential_id':'cloudflare-station',
+                    'credential_revision':self.assignment_revision,
+                    'consumer':'station-access',
+                }
+                signature=self.key.sign(
+                    certificate_assignment._assignment_bytes(value)
+                )
+                envelope={
+                    'schema':certificate_assignment.ENVELOPE_SCHEMA,
+                    'key_id':signatures.fingerprint(self.key.public_key()),
+                    'assignment':value,
+                    'signature':base64.b64encode(signature).decode(),
+                }
+                return {
+                    'schema':certificate_assignment.RESPONSE_SCHEMA,
+                    'host_id':self.host,
+                    'state':'receipt',
+                    'revision':self.assignment_revision,
+                    'envelope':envelope,
+                }
+            result=super().post(url,payload,key,subject,ca)
+            if url.endswith('/heartbeat/') and self.approved:
+                result['certificate_assignment']={'version':1}
+            return result
+
+    station=AssignmentStation();station.approved=True
+
+    # The native installer owns this path.  The test uses a temporary absolute
+    # root-owned directory but exercises the same no-symlink/mode reader.
+    config=tmp_path/'host-install-config'
+    config.mkdir(mode=0o755)
+    pin={
+        'schema':1,
+        'kind':supervisor.AUTHORITY_PIN_KIND,
+        'registry_id':'primary',
+        'authority_public_key':signatures.public_text(station.key.public_key()),
+        'authority_key_id':signatures.fingerprint(station.key.public_key()),
+    }
+    pin_path=config/supervisor.AUTHORITY_PIN_FILE
+    pin_path.write_bytes(canonical(pin))
+    pin_path.chmod(0o444)
+    monkeypatch.setattr(supervisor,'CONFIG',str(config))
+
+    runtime=beacon.Beacon(state).open()
+    try:
+        runtime.tick(station,{'version':1,'hostname':'host'})
+        authority_path=root/supervisor.AUTHORITY_NAME/supervisor.AUTHORITY_FILE
+        first=json.loads(authority_path.read_text())
+        info=authority_path.stat()
+        assert (info.st_uid,info.st_gid,stat.S_IMODE(info.st_mode))==(0,0,0o600)
+        assert first['schema']==supervisor.AUTHORITY_SCHEMA
+        assert first['origin']=='managed'
+        assert first['verified_by']=='signed-host-discover'
+        assert first['host_id']==station.host
+        assert first['installation_id']==B['bootstrap']['installation_id']
+        assert first['state_volume_id']==B['bootstrap']['state']['state_volume_id']
+        assert first['authority_key_id']==pin['authority_key_id']
+        assert first['envelope']['assignment']['hostnames']==[
+            'station.hosts.example.test'
+        ]
+        assert first['revision']==1
+        assert 'policy_sha256' not in first
+        saved_first=(root/'host-discover/control/certificate-assignment.json').read_bytes()
+
+        station.assignment_revision=2
+        station.assignment_status='revoked'
+        station.assignment_operation=str(uuid.uuid4())
+        runtime.tick(station,{'version':1,'hostname':'host'})
+        second=supervisor.inspect_authority(state.producer)
+        assert second['revision']==2
+        assert second['envelope']['assignment']['status']=='revoked'
+        assert len(second['operations'])==2
+
+        # A compromised UID-970 state writer cannot roll the root checkpoint
+        # back to the older, correctly signed approval.
+        service_state=root/'host-discover/control/certificate-assignment.json'
+        service_state.write_bytes(saved_first)
+        service_state.chmod(0o600)
+        os.chown(service_state,970,970)
+        with pytest.raises(StateError,match='certificate-authority-stale'):
+            runtime.supervisor.certificate_authority(beacon.digest(runtime.saved))
+        assert supervisor.inspect_authority(state.producer)['revision']==2
+    finally:
+        runtime.close()

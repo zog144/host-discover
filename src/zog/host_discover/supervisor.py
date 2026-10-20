@@ -11,12 +11,19 @@ import stat
 import uuid
 from contextlib import contextmanager
 from zog.host_install import state_admission as wire
-from zog.host_install.state_contract import StateError, canonical, decode, fields, header, require, sha
+from zog.host_install.state_contract import CONFIG, StateError, canonical, decode, fields, header, require, sha
 from zog.host_install.state_inspect import inspect_live, metadata, directory, read_at
-from zog.host_install.state_io import ensure_directory, publish, raw
+from zog.host_install.state_io import ensure_directory, publish, raw, lock as state_lock
 
 NAME = 'host-discover-supervisor'
 SOCKET = '/run/host-discover-supervisor/beacon.sock'
+
+AUTHORITY_NAME = 'host-discover-certificate-authority'
+AUTHORITY_FILE = 'authority.json'
+AUTHORITY_PIN_FILE = 'certificate-assignment-authority.json'
+AUTHORITY_PIN_KIND = 'zog-certificate-assignment-authority-pin'
+AUTHORITY_SCHEMA = 'zog-host-discover-certificate-authority-observation-v1'
+_AUTHORITY_MAX_OPERATIONS = 128
 
 
 def identifier(value):
@@ -28,6 +35,411 @@ def fixed(context, observation):
     b = context.bundle['bootstrap']
     return dict(installation_id=b['installation_id'], state_volume_id=b['state']['state_volume_id'],
                 fingerprint=observation['receipt']['fingerprint'])
+
+
+def _authority_pin():
+    """Read the separately installed root-owned command-center assignment key."""
+    from zog.host_identify import signatures
+    fd = directory(CONFIG)
+    try:
+        info = os.fstat(fd)
+        require(
+            info.st_uid == 0 and info.st_gid == 0 and not info.st_mode & 0o022,
+            'certificate-authority-pin-owner',
+            'Host-install configuration ancestry must remain root-owned',
+        )
+        value = decode(read_at(fd, AUTHORITY_PIN_FILE, 0, 0, 0o444))
+    finally:
+        os.close(fd)
+    fields(value, 'schema kind registry_id authority_public_key authority_key_id')
+    require(
+        value['schema'] == 1 and type(value['schema']) is int
+        and value['kind'] == AUTHORITY_PIN_KIND
+        and type(value['registry_id']) is str
+        and 1 <= len(value['registry_id']) <= 64,
+        'certificate-authority-pin',
+        'Invalid assignment authority pin',
+    )
+    try:
+        key = signatures.public_key(value['authority_public_key'])
+    except (TypeError, ValueError) as exc:
+        raise StateError(
+            'certificate-authority-pin',
+            'Invalid assignment authority public key',
+        ) from exc
+    require(
+        signatures.fingerprint(key) == value['authority_key_id'],
+        'certificate-authority-pin',
+        'Assignment authority key fingerprint mismatch',
+    )
+    return value, key
+
+
+def authority_validate(value):
+    """Validate the self-contained root-owned managed authority observation."""
+    from zog.host_identify import signatures
+    from .certificate_assignment import assignment_digest, validate_envelope
+
+    fields(
+        value,
+        'schema origin verified_by host_id installation_id state_volume_id '
+        'registry_id authority_public_key authority_key_id revision operation_id '
+        'assignment_sha256 operations envelope',
+    )
+    require(
+        value['schema'] == AUTHORITY_SCHEMA
+        and value['origin'] == 'managed'
+        and value['verified_by'] == 'signed-host-discover',
+        'certificate-authority-record',
+        'Unsupported authority observation',
+    )
+    identifier(value['host_id'])
+    identifier(value['installation_id'])
+    identifier(value['state_volume_id'])
+    identifier(value['operation_id'])
+    sha(value['authority_key_id'])
+    sha(value['assignment_sha256'])
+    require(
+        type(value['registry_id']) is str and 1 <= len(value['registry_id']) <= 64
+        and type(value['revision']) is int and 1 <= value['revision'] < 2**53,
+        'certificate-authority-record',
+        'Invalid authority identity or revision',
+    )
+    try:
+        key = signatures.public_key(value['authority_public_key'])
+    except (TypeError, ValueError) as exc:
+        raise StateError(
+            'certificate-authority-record',
+            'Invalid retained authority key',
+        ) from exc
+    require(
+        signatures.fingerprint(key) == value['authority_key_id'],
+        'certificate-authority-record',
+        'Retained authority key fingerprint mismatch',
+    )
+    try:
+        assignment = validate_envelope(
+            value['envelope'],
+            key,
+            expected_host=value['host_id'],
+            expected_installation=value['installation_id'],
+        )
+    except ValueError as exc:
+        raise StateError(
+            'certificate-authority-record',
+            'Retained assignment signature is invalid',
+        ) from exc
+    require(
+        assignment['revision'] == value['revision']
+        and assignment['operation_id'] == value['operation_id']
+        and assignment_digest(assignment) == value['assignment_sha256'],
+        'certificate-authority-record',
+        'Retained assignment binding mismatch',
+    )
+    operations = value['operations']
+    require(
+        type(operations) is list and 1 <= len(operations) <= _AUTHORITY_MAX_OPERATIONS,
+        'certificate-authority-record',
+        'Invalid root operation history',
+    )
+    seen = set()
+    current = None
+    for row in operations:
+        fields(row, 'operation_id assignment_sha256')
+        identifier(row['operation_id'])
+        sha(row['assignment_sha256'])
+        require(
+            row['operation_id'] not in seen,
+            'certificate-authority-record',
+            'Duplicate root operation binding',
+        )
+        seen.add(row['operation_id'])
+        if row['operation_id'] == value['operation_id']:
+            current = row
+    require(
+        current is not None
+        and current['assignment_sha256'] == value['assignment_sha256'],
+        'certificate-authority-record',
+        'Current operation is not root-checkpointed',
+    )
+    return value
+
+
+def _authority_read(fd):
+    names = set(os.listdir(fd))
+    require(
+        names <= {'lock', AUTHORITY_FILE},
+        'certificate-authority-incomplete',
+        'Interrupted or unknown authority publication requires reconciliation',
+    )
+    data = raw(fd, AUTHORITY_FILE, 0, 0, 0o600)
+    if data is None:
+        return None
+    return authority_validate(decode(data))
+
+
+def _authority_replace(fd, value):
+    """Durable replacement; an interrupted marker blocks automatic adoption."""
+    data = canonical(value)
+    require(
+        len(data) <= 65536,
+        'certificate-authority-capacity',
+        'Authority observation exceeds capacity',
+    )
+    require(
+        set(os.listdir(fd)) <= {'lock', AUTHORITY_FILE},
+        'certificate-authority-incomplete',
+        'Authority publication already incomplete',
+    )
+    pending = 'authority.pending'
+    next_name = 'authority.next'
+    out = os.open(
+        pending,
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+        0o600,
+        dir_fd=fd,
+    )
+    try:
+        os.fchmod(out, 0o600)
+        view = memoryview(data)
+        while view:
+            count = os.write(out, view)
+            require(
+                count > 0,
+                'state-io-failure',
+                'Short authority observation write',
+            )
+            view = view[count:]
+        os.fsync(out)
+    finally:
+        os.close(out)
+    os.fsync(fd)
+    os.link(
+        pending,
+        next_name,
+        src_dir_fd=fd,
+        dst_dir_fd=fd,
+        follow_symlinks=False,
+    )
+    os.replace(next_name, AUTHORITY_FILE, src_dir_fd=fd, dst_dir_fd=fd)
+    os.fsync(fd)
+    os.unlink(pending, dir_fd=fd)
+    os.fsync(fd)
+
+
+def _authority_next(previous, state, pin):
+    from .certificate_assignment import assignment_digest
+
+    assignment = state['envelope']['assignment']
+    digest = assignment_digest(assignment)
+    operation = assignment['operation_id']
+    revision = assignment['revision']
+    if previous is not None:
+        authority_validate(previous)
+        for key, wanted in (
+            ('host_id', assignment['host_id']),
+            ('installation_id', assignment['installation_id']),
+            ('state_volume_id', state['installation_state_volume_id']),
+            ('registry_id', pin['registry_id']),
+            ('authority_key_id', pin['authority_key_id']),
+        ):
+            require(
+                previous[key] == wanted,
+                'certificate-authority-conflict',
+                'Authority identity changed',
+            )
+        if revision < previous['revision']:
+            raise StateError(
+                'certificate-authority-stale',
+                'Signed assignment rolled back below root checkpoint',
+            )
+        if revision == previous['revision']:
+            require(
+                operation == previous['operation_id']
+                and digest == previous['assignment_sha256'],
+                'certificate-authority-conflict',
+                'Same authority revision changed contents',
+            )
+            return previous, False
+        history = {
+            row['operation_id']: row['assignment_sha256']
+            for row in previous['operations']
+        }
+        require(
+            operation not in history,
+            'certificate-authority-operation-replayed',
+            'Authority operation ID was already root-checkpointed',
+        )
+        require(
+            len(previous['operations']) < _AUTHORITY_MAX_OPERATIONS,
+            'certificate-authority-history-full',
+            'Root authority operation history is full',
+        )
+        operations = list(previous['operations'])
+    else:
+        operations = []
+    operations.append({
+        'operation_id': operation,
+        'assignment_sha256': digest,
+    })
+    result = {
+        'schema': AUTHORITY_SCHEMA,
+        'origin': 'managed',
+        'verified_by': 'signed-host-discover',
+        'host_id': assignment['host_id'],
+        'installation_id': assignment['installation_id'],
+        'state_volume_id': state['installation_state_volume_id'],
+        'registry_id': pin['registry_id'],
+        'authority_public_key': pin['authority_public_key'],
+        'authority_key_id': pin['authority_key_id'],
+        'revision': revision,
+        'operation_id': operation,
+        'assignment_sha256': digest,
+        'operations': operations,
+        'envelope': state['envelope'],
+    }
+    authority_validate(result)
+    return result, True
+
+
+def checkpoint_authority(context, supervisor_value):
+    """Root independently verifies and checkpoints the service-owned assignment."""
+    from zog.host_identify import signatures
+    from . import admission
+    from .certificate_assignment import managed_read_state
+
+    require(
+        os.geteuid() == 0,
+        'root-required',
+        'Certificate authority checkpoint is root-owned',
+    )
+    require(
+        supervisor_value['journal_sha256'] is not None,
+        'certificate-authority-journal',
+        'Managed journal has not been root-checkpointed',
+    )
+    b = context.bundle['bootstrap']
+    pin, authority_key = _authority_pin()
+    registry_id = b['control_authority']['registry_id']
+    require(
+        pin['registry_id'] == registry_id,
+        'certificate-authority-pin',
+        'Authority pin belongs to a different control registry',
+    )
+    configured = next(
+        (row for row in b['registries'] if row['registry_id'] == registry_id),
+        None,
+    )
+    require(
+        configured is not None and configured['role'] == 'control',
+        'certificate-authority-registry',
+        'Pinned registry is not the control registry',
+    )
+
+    journal = admission.Journal(context)
+    authority_fd = None
+    try:
+        saved = journal.read()
+        require(
+            hashlib.sha256(canonical(saved)).hexdigest()
+            == supervisor_value['journal_sha256'],
+            'certificate-authority-journal',
+            'Managed journal differs from root checkpoint',
+        )
+        require(
+            all(
+                saved[key] == supervisor_value['binding'][key]
+                for key in ('installation_id', 'state_volume_id', 'fingerprint')
+            ),
+            'certificate-authority-binding',
+            'Managed journal identity differs from root supervisor binding',
+        )
+        row = saved['registries'].get(registry_id)
+        require(
+            row is not None
+            and row['origin'] == configured['origin']
+            and row['role'] == 'control'
+            and row['host_id'] is not None
+            and row['public_key'] is not None
+            and row['pending'] is None,
+            'certificate-authority-registry',
+            'Control registry trust is incomplete or changed',
+        )
+        expected = b['initialization']['expected_host_uuid']
+        require(
+            expected is None or row['host_id'] == expected,
+            'certificate-authority-binding',
+            'Control registry host binding differs from installer identity',
+        )
+        require(
+            row['public_key'] == pin['authority_public_key']
+            and signatures.fingerprint(authority_key) != saved['fingerprint'],
+            'certificate-authority-pin',
+            'Managed registry signing key differs from root-owned authority pin',
+        )
+        state = managed_read_state(
+            journal.fd,
+            authority_key,
+            expected_host=row['host_id'],
+            expected_installation=saved['installation_id'],
+            expected_uid=970,
+        )
+        require(
+            state is not None,
+            'certificate-authority-unavailable',
+            'No signed managed certificate assignment is retained',
+        )
+        # The extra value is internal only; it is never persisted as part of
+        # the service-owned state and binds the root record to this STATE volume.
+        state = dict(state)
+        state['installation_state_volume_id'] = saved['state_volume_id']
+
+        authority_fd = ensure_directory(
+            context.fd,
+            AUTHORITY_NAME,
+            0,
+            0,
+            0o700,
+        )
+        with state_lock(authority_fd, 'lock'):
+            previous = _authority_read(authority_fd)
+            result, changed = _authority_next(previous, state, pin)
+            if changed:
+                _authority_replace(authority_fd, result)
+        context.recheck()
+        return result
+    finally:
+        if authority_fd is not None:
+            os.close(authority_fd)
+        journal.close()
+
+
+def inspect_authority(context):
+    """Return the protected root observation; never synthesize missing authority."""
+    require(os.geteuid() == 0, 'root-required', 'Root authority inspection only')
+    fd = os.open(
+        AUTHORITY_NAME,
+        os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+        dir_fd=context.fd,
+    )
+    try:
+        metadata(fd, 0, 0, 0o700)
+        require(
+            os.fstat(fd).st_dev == os.fstat(context.fd).st_dev,
+            'nested-mount',
+            AUTHORITY_NAME,
+        )
+        with state_lock(fd, 'lock'):
+            value = _authority_read(fd)
+            require(
+                value is not None,
+                'certificate-authority-unavailable',
+                'No root-owned authority observation is installed',
+            )
+            context.recheck()
+            return value
+    finally:
+        os.close(fd)
 
 
 @contextmanager
@@ -138,7 +550,7 @@ def action(context, request):
     fields(request, 'schema kind nonce action run_id bindings journal_sha256 code')
     require(request['schema'] == 1 and type(request['schema']) is int and request['kind'] == 'zog-beacon-supervisor-request', 'supervisor-request', 'Unsupported protocol')
     sha(request['nonce']); identifier(request['run_id'])
-    require(request['action'] in ('begin', 'check', 'commit', 'finish', 'fault'), 'supervisor-action', 'Unsupported action')
+    require(request['action'] in ('begin', 'check', 'commit', 'certificate-authority', 'finish', 'fault'), 'supervisor-action', 'Unsupported action')
     require(request['code'] in (None, 'managed-state-fault', 'managed-transport-fault'), 'supervisor-code', 'No free-form error text')
     require((request['action'] == 'fault') == (request['code'] is not None), 'supervisor-code', 'Fault code only on fault')
     if request['journal_sha256'] is not None: sha(request['journal_sha256'])
@@ -161,13 +573,15 @@ def action(context, request):
                 value['fault'] = value['fault'] or dict(id=str(uuid.uuid4()), code=request['code'])
             else:
                 require(value['fault'] is None, 'supervisor-recovery-required', 'Fault is latched')
-                if request['action'] in ('check', 'finish'):
+                if request['action'] in ('check', 'certificate-authority', 'finish'):
                     require(request['journal_sha256'] == value['journal_sha256'], 'supervisor-journal-conflict', 'Journal differs from protected checkpoint')
                 if request['action'] == 'commit':
                     require(request['journal_sha256'] is not None, 'supervisor-journal-conflict', 'Cannot clear journal checkpoint')
                     value['journal_sha256'] = request['journal_sha256']
+                if request['action'] == 'certificate-authority':
+                    checkpoint_authority(context, value)
                 if request['action'] == 'finish': value['run'] = None
-        if request['action'] != 'check':
+        if request['action'] not in ('check', 'certificate-authority'):
             value['revision'] += 1; replace(fd, value)
         return dict(binding=value['binding'], revision=value['revision'], journal_sha256=value['journal_sha256'],
                     run_id=request['run_id'], transport_enabled=False, control_authorized=False)
@@ -245,6 +659,10 @@ class Client:
         result = self.call('commit', digest)
         require(result['journal_sha256'] == digest, 'supervisor-response', 'Checkpoint mismatch')
         self.digest = digest
+    def certificate_authority(self, digest):
+        result = self.call('certificate-authority', digest)
+        require(result['journal_sha256'] == digest, 'supervisor-response', 'Authority checkpoint used a different journal')
+        return result
     def finish(self): self.call('finish', self.digest); self.started = False
     def fault(self):
         if self.started: self.call('fault', self.digest, 'managed-state-fault')
@@ -257,6 +675,7 @@ def main():
     sub.add_parser('serve-listen')
     p = sub.add_parser('prepare'); p.add_argument('--state-volume-id', required=True)
     sub.add_parser('inspect')
+    sub.add_parser('authority-inspect')
     p = sub.add_parser('reset'); p.add_argument('--revision', type=int, required=True); p.add_argument('--run-id', required=True); p.add_argument('--reason', required=True)
     a = parser.parse_args()
     try:
@@ -266,6 +685,7 @@ def main():
         with inspect_live() as context:
             if a.command == 'prepare': result = prepare(context, a.state_volume_id)
             elif a.command == 'reset': result = reset(context, a.revision, a.run_id, a.reason)
+            elif a.command == 'authority-inspect': result = inspect_authority(context)
             else:
                 with ledger(context) as (_, value): result = value
         print(json.dumps(result, sort_keys=True))

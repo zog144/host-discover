@@ -122,6 +122,15 @@ class Beacon(Runtime):
         except Exception: pass  # An already durable active run still blocks restart.
         self.state.fail(getattr(error, 'code', 'managed-state-fault'))
 
+    def authority_checkpoint(self):
+        # The root supervisor independently re-reads the anchored assignment
+        # and control-registry key; this process supplies only its already
+        # protected managed-journal digest.
+        self.guard()
+        result = self.supervisor.certificate_authority(digest(self.saved))
+        self.guard()
+        return result
+
     def transport_failure(self, error):
         # An outage is not a durable fault. Local health must still pass after
         # the failed request, before retaining this supervised run for retry.
