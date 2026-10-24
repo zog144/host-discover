@@ -11,10 +11,10 @@ from pathlib import Path
 from types import SimpleNamespace
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from zog.host_install.state_contract import StateError, canonical
+from zog.host_install.state_contract import StateError, canonical, digest as state_digest, validate as validate_state_bundle
 from zog.host_install import state_inspect
 from zog.host_identify import signatures
-from zog.host_discover import supervisor, beacon, admission, beacon_state, certificate_assignment
+from zog.host_discover import supervisor, beacon, admission, beacon_state, certificate_assignment, daemon
 from test_managed_admission import State, Station, B
 
 
@@ -72,6 +72,99 @@ def retry(state):
     value=current(state)
     supervisor.reset(state.producer,value['revision'],value['run']['id'],'Operator checked existing state; authorize retry')
     state.fault=None
+
+
+
+
+def test_nonresident_default_report_reaches_signed_enrollment_without_resident_provenance(
+        environment, monkeypatch):
+    state,_,_=environment
+
+    installation=state.bundle['installation']
+    recorded=installation['installer_recorded']
+    installation['schema']=2
+    installation['installation_mode']='non-resident'
+    installation['installer_recorded']={
+        key:copy.deepcopy(recorded[key])
+        for key in ('account_profile','accounts_sha256','marker_sha256','state_schemas')
+    }
+    installation['installer_recorded']['host_os']={
+        'management':'externally-managed',
+        'boot':'externally-managed',
+        'root_filesystem':'externally-managed',
+    }
+    state.bundle['bootstrap']['installation_record']['sha256']=state_digest(installation)
+    assert validate_state_bundle(copy.deepcopy(state.bundle)) == state.bundle
+
+    # Non-resident reporting must never infer cloud ownership from resident-only
+    # foreign_boot_bundle provenance.
+    monkeypatch.setattr(
+        daemon,
+        'metadata',
+        lambda: pytest.fail('non-resident report must not infer resident cloud provenance'),
+    )
+
+    captured={}
+    class Response:
+        status=202
+        def __enter__(self): return self
+        def __exit__(self,*args): return False
+        def read(self,maximum):
+            return json.dumps({'status':'pending'}).encode()[:maximum]
+
+    class Opener:
+        def open(self,request,timeout):
+            captured['url']=request.full_url
+            captured['body']=json.loads(request.data)
+            signatures.verify(
+                request.full_url,
+                'POST',
+                dict(request.header_items()),
+                request.data,
+                state.key.public_key(),
+                'pending',
+            )
+            return Response()
+
+    monkeypatch.setattr(
+        beacon.urllib.request,
+        'build_opener',
+        lambda *args,**kwargs: Opener(),
+    )
+
+    runtime=beacon.Beacon(state).open()
+    try:
+        runtime.tick()
+        assert captured['url'].endswith('/api/hosts/enrollment/')
+        report=captured['body']['report']
+        generation=report['host_generation']
+        assert generation == {
+            'schema':2,
+            'source':'verified-host-install-state-v2',
+            'installation':{
+                'installation_id':installation['installation_id'],
+                'record_id':installation['record_id'],
+                'record_schema':2,
+                'operation':installation['operation'],
+                'installation_mode':'non-resident',
+            },
+            'host_os':{
+                'management':'externally-managed',
+                'boot':'externally-managed',
+                'root_filesystem':'externally-managed',
+            },
+            'selected_slot':None,
+            'booted_slot':None,
+            'slots':{'HOST-A':None,'HOST-B':None},
+            'transitional_boot_bundle':None,
+        }
+        assert 'public_ip' not in report
+        assert 'private_ip' not in report
+        assert 'public_dns' not in report
+        assert 'cloud' not in report
+        assert runtime.saved['registries']=={}
+    finally:
+        runtime.finish()
 
 
 def test_complete_beacon_pending_approval_restart(environment):

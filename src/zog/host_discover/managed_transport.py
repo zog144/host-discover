@@ -99,10 +99,20 @@ class Runtime:
             self.guard()
             if report is None:
                 report=collect({'provider':'generic'})
-                boot=self.state.context.bundle['installation']['installer_recorded']['foreign_boot_bundle']
-                if boot and boot['provider']=='amazon-linux-2023':
-                    from .daemon import metadata
-                    report.update(metadata())  # Failure must not enroll a generic duplicate.
+                installation=self.state.context.bundle['installation']
+                from zog.host_install.state_contract import installation_mode
+                mode=installation_mode(installation)
+                # Resident installations may retain an installer-recorded
+                # foreign boot provenance that identifies the currently
+                # supported cloud observation path. Non-resident installations
+                # deliberately do not have that field: their host OS, boot and
+                # root filesystem remain externally managed and must not be
+                # invented as Zog HOST-slot or foreign-bundle provenance.
+                if mode=='resident':
+                    boot=installation['installer_recorded']['foreign_boot_bundle']
+                    if boot and boot['provider']=='amazon-linux-2023':
+                        from .daemon import metadata
+                        report.update(metadata())  # Failure must not enroll a generic duplicate.
                 from zog.host_install.state_inspect import host_generation_report
                 report['host_generation']=host_generation_report(self.state.context)
             for reg in self.bootstrap['registries']:

@@ -10,7 +10,7 @@ This is the canonical navigation entry point for host-discover. It organizes cur
 - [Certificate hostname assignment transport](CERTIFICATE-ASSIGNMENT.md)
 - [Root-owned certificate authority handoff](CERTIFICATE-AUTHORITY-OWNER-HANDOFF.md)
 - [Managed state and sessions](guide/managed-state-and-sessions.md)
-- [host-install 0.10.0 compatibility](HOST-INSTALL-0.10-COMPATIBILITY.md)
+- [host-install 0.14.3 compatibility](HOST-INSTALL-0.14-COMPATIBILITY.md)
 - [Failure and recovery](guide/failure-and-recovery.md)
 - [Integration and verification](guide/integration-and-verification.md)
 

@@ -124,7 +124,7 @@ jobs:
                   + repr(sorted(missing_source))
               )
               assert "tests/test_namespace_layout.py" in files
-              assert "tests/test_host_install_010_compatibility.py" in files
+              assert "tests/test_host_install_014_compatibility.py" in files
               assert "tests/test_host_install_native_compatibility.py" in files
 
           print(f"validated wheel: {wheel}")
@@ -143,7 +143,7 @@ jobs:
                            "THIRD-PARTY-NOTICES.md", "tests/test_namespace_layout.py",
                            "docs/host-discover/README.md",
                            "docs/host-discover/CERTIFICATE-ASSIGNMENT.md",
-                           "docs/host-discover/HOST-INSTALL-0.10-COMPATIBILITY.md"):
+                           "docs/host-discover/HOST-INSTALL-0.14-COMPATIBILITY.md"):
                   assert path in files, path
               assert "COPYRIGHT" not in files
               assert "version-share-handoff.json" not in files
@@ -159,7 +159,7 @@ jobs:
 
           import zog.host_discover
 
-          assert zog.host_discover.__version__ == "0.4.10"
+          assert zog.host_discover.__version__ == "0.4.11"
           assert importlib.util.find_spec("host_discover") is None
           assert files("zog.host_discover").joinpath(
               "systemd", "host-discover.service"

@@ -7,7 +7,7 @@ and current addresses to the station-access registry, handles explicit key
 approval, and optionally reconciles a leased archive-mirror role. It does not
 hold AWS account credentials or perform central DNS writes.
 
-This public source package is **0.4.10**. Its canonical repository is
+This public source package is **0.4.11**. Its canonical repository is
 [zog144/host-discover](https://github.com/zog144/host-discover). Consumers
 should pin an exact reviewed *public* commit; historical private Git commits
 have separate identities. host-deploy assembles its payload from an approved
@@ -117,21 +117,28 @@ See the
 and the
 [root-owned authority handoff](docs/host-discover/CERTIFICATE-AUTHORITY-OWNER-HANDOFF.md).
 
-## host-install 0.10.0 compatibility (0.4.9)
+## host-install 0.14.3 compatibility and non-resident reporting (0.4.11)
 
 The selected public host-install source is now
-`325b6c95320d04ad14b987f25e07c1361b7e6f04` (version 0.10.0).
-host-discover does not merely relax its dependency pin: public CI checks out
-that exact source together with the reviewed host-identify and box-control
-companions, validates the retained STATE fixture with the real 0.10.0 contract,
-runs the ordinary source-level suite unprivileged, and runs the root-only
-supervisor/recovery suites plus a native ownership fixture under sudo using real
-numeric ownership and mode operations on Python 3.12 and 3.13.
+`889f137dc19d1f34fca42fd3dd8df862f8ebae9d` (version 0.14.3).
+This is the first host-discover compatibility selection that explicitly covers
+host-install schema-2 resident/non-resident ownership.
+
+The default managed-beacon report path now asks host-install for the installation
+mode before consulting resident-only foreign boot provenance. Resident behavior
+is preserved. A non-resident installation reports host-install's verified
+externally-managed ownership block and does not invent Zog HOST slots, root
+generations, transitional foreign boot metadata, or AWS identity merely because
+the machine is running on EC2.
+
+CI exercises the real `Beacon.tick()` default-report path on a valid schema-2
+non-resident bundle through an Ed25519-signed pending enrollment request; an
+already-built report cannot hide this branch.
 
 The fixed host-discover STATE identity remains UID/GID 970 with supplementary
-groups 972/973. Native mounted-STATE, NSS, SELinux, systemd and reboot acceptance
-remain separate Work gates. See
-[host-install 0.10.0 compatibility](docs/host-discover/HOST-INSTALL-0.10-COMPATIBILITY.md).
+groups 972/973. Native mounted-STATE, NSS, SELinux, systemd, CAS retry and
+enrollment acceptance remain separate Work gates. See
+[host-install 0.14.3 compatibility](docs/host-discover/HOST-INSTALL-0.14-COMPATIBILITY.md).
 
 ## Tests
 
@@ -172,7 +179,7 @@ waits. Pending session requests survive uncertain responses and clean offline
 shutdown; each HTTP attempt has a fresh signature nonce. TLS, authentication,
 protocol, storage and checkpoint failures still block and require investigation.
 No fault, identity or trust reset is automatic. The outage behavior was originally accepted with host-install 0.4.3. The current
-0.4.9 source-compatibility gate pins host-install 0.10.0; graceful helper-safe
+0.4.11 source-compatibility gate pins host-install 0.14.3; graceful helper-safe
 stop remains required and remote commands remain disabled. See the
 [supervisor contract](docs/host-discover/BEACON-SUPERVISOR.md) for precise behavior and limits.
 
@@ -189,10 +196,11 @@ live root PARTUUID, HOST-A/HOST-B generation identities, and any recorded
 transitional foreign boot-bundle identity.
 
 Legacy collection and caller-injected fixture reports are not upgraded or
-reinterpreted. This producer contract was introduced against host-install 0.4.4;
-the selected current producer is host-install 0.10.0 at
-`325b6c95320d04ad14b987f25e07c1361b7e6f04`. host-discover does not infer
-inactive slots or treat the selected slot as booted.
+reinterpreted. The selected current producer is host-install 0.14.3 at
+`889f137dc19d1f34fca42fd3dd8df862f8ebae9d`. Resident reports retain the
+existing slot/provenance semantics. Schema-2 non-resident reports instead carry
+the explicit externally-managed host ownership block with null Zog slots and no
+transitional foreign boot bundle.
 
 ## Public licensing and migration history
 
@@ -205,6 +213,6 @@ Local and public CI fixtures do not establish live host enrollment,
 native-systemd restart/reboot acceptance or production archive-role readiness.
 
 The public CI checks complete package closure, the reviewed host-identify
-integration, and an exact host-install 0.10.0 / box-control companion set.
+integration, and an exact host-install 0.14.3 / box-control companion set.
 Production mounted-STATE, native systemd, reboot and deployment acceptance remain
 separate Work-owned gates.

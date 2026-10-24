@@ -1,4 +1,4 @@
-name: Exact host-install 0.10 compatibility
+name: Exact host-install 0.14 compatibility
 
 on:
   push:
@@ -34,7 +34,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: zog144/host-install
-          ref: 325b6c95320d04ad14b987f25e07c1361b7e6f04
+          ref: 889f137dc19d1f34fca42fd3dd8df862f8ebae9d
           path: companions/host-install
 
       - name: Check out selected public box-control
@@ -51,7 +51,7 @@ jobs:
       - name: Verify exact immutable source selections
         run: |
           test "$(git -C companions/host-identify rev-parse HEAD)" = "1a5eac0b255c995022db6a3a4c0051efffa748cc"
-          test "$(git -C companions/host-install rev-parse HEAD)" = "325b6c95320d04ad14b987f25e07c1361b7e6f04"
+          test "$(git -C companions/host-install rev-parse HEAD)" = "889f137dc19d1f34fca42fd3dd8df862f8ebae9d"
           test "$(git -C companions/box-control rev-parse HEAD)" = "8249715708c6ef8a1fd30a3fb529b4034ffffe25"
 
       - name: Install selected public companions and local source
@@ -68,9 +68,9 @@ jobs:
           import importlib.metadata
           import zog.host_discover
           import zog.host_install
-          assert zog.host_discover.__version__ == "0.4.10"
-          assert zog.host_install.__version__ == "0.10.0"
-          assert importlib.metadata.version("host-install") == "0.10.0"
+          assert zog.host_discover.__version__ == "0.4.11"
+          assert zog.host_install.__version__ == "0.14.3"
+          assert importlib.metadata.version("host-install") == "0.14.3"
           PY
 
       - name: Compile source and tests
@@ -84,7 +84,7 @@ jobs:
             --ignore=tests/test_supervised_beacon.py \
             --ignore=tests/test_host_install_native_compatibility.py
 
-      - name: Run privileged STATE and recovery fixtures with real ownership
+      - name: Run privileged STATE, reporting and recovery fixtures
         run: |
           sudo --preserve-env=PATH "$(command -v python)" -m pytest -q \
             tests/test_network_retry.py \
