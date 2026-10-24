@@ -7,6 +7,7 @@ from zog.host_discover.managed_transport import Runtime
 def state():
     bundle = {
         'installation': {
+            'schema': 1,
             'installer_recorded': {
                 'foreign_boot_bundle': None,
             }
