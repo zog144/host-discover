@@ -160,7 +160,7 @@ jobs:
 
           import zog.host_discover
 
-          assert zog.host_discover.__version__ == "0.4.12"
+          assert zog.host_discover.__version__ == "0.4.13"
           assert importlib.util.find_spec("host_discover") is None
           assert files("zog.host_discover").joinpath(
               "systemd", "host-discover.service"

@@ -9,6 +9,10 @@ from __future__ import annotations
 from zog.host_install.state_contract import StateError, require
 from zog.host_identify import credential_delivery
 
+ADMINISTRATOR_CONSUMER = "station-access"
+ADMINISTRATOR_PURPOSE = "station-administrator-password"
+ADMINISTRATOR_CREDENTIAL_ID = "station-admin"
+
 
 def managed_binding(
     saved: dict,
@@ -69,6 +73,22 @@ def managed_binding(
             "credential-binding-invalid",
             "Credential delivery binding is invalid",
         ) from exc
+
+
+def administrator_binding(
+    saved: dict,
+    bootstrap: dict,
+    registry_id: str,
+) -> dict:
+    """Exact non-secret destination binding for the administrator profile."""
+    return managed_binding(
+        saved,
+        bootstrap,
+        registry_id,
+        consumer=ADMINISTRATOR_CONSUMER,
+        purpose=ADMINISTRATOR_PURPOSE,
+        credential_id=ADMINISTRATOR_CREDENTIAL_ID,
+    )
 
 
 def reject_heartbeat_delivery(response: dict) -> None:

@@ -100,9 +100,13 @@ Current source boundaries:
 
 - certificate DNS provider credentials may later use a reviewed purpose such as
   `issuer-cloudflare-dns01`, with host-install/certify-manage ownership;
-- administrator credential provisioning requires a separate station-access
-  profile reconciling FIRST-LOGIN, `station_login_file`, password changes,
-  session revocation and recoverable-secret policy;
+- administrator credential provisioning now has a source-only station-access
+  profile using purpose `station-administrator-password`, consumer
+  `station-access`, credential ID `station-admin`. host-discover exposes
+  `administrator_binding(...)` only as exact non-secret destination evidence.
+  The station-access profile reconciles FIRST-LOGIN, `station_login_file`,
+  password changes, session revocation and recoverable-secret policy; remote
+  delivery remains disabled;
 - archive-mirror currently has no approved durable HTTPS credential purpose;
   its existing short-lived scoped JWT is separate.
 
@@ -134,3 +138,35 @@ and secret-free receipt/cancellation messages.
 **host-discover:** remains non-secret. Future changes must not add a
 secret-returning method to the managed beacon or widen the inspect-only session
 operations.
+
+
+## Administrator profile reconciliation
+
+The existing `station_login_file` mechanism remains a legacy **push** path:
+an operator privately exports a still-current `station-admin` plaintext into a
+0600 host-discover file, and an already bound Host may include it in its signed
+heartbeat. It is not a source for the new receiving profile and it does not
+grant the Host permission to fetch an administrator password.
+
+The source-only administrator receiving profile instead fixes the common
+binding to:
+
+```text
+consumer = station-access
+purpose = station-administrator-password
+credential_id = station-admin
+```
+
+`administrator_binding(saved, bootstrap, registry_id)` derives only that
+non-secret binding from a fully enrolled control registry. It does not carry a
+password, Django hash, operator approval, receiver grant, credential revision,
+or installation result.
+
+station-access separately binds its proposal to the exact selected
+`station-admin` database account and current opaque keyed account revision.
+Password changes therefore invalidate stale proposals without making old
+FIRST-LOGIN/export plaintext disappear or become current.
+
+The future root receiver must combine this destination evidence with the
+station-access operator-approved common-protocol authorization. Neither half is
+sufficient by itself.

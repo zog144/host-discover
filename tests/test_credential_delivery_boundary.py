@@ -3,7 +3,10 @@ import uuid
 import pytest
 
 from zog.host_install.state_contract import StateError
-from zog.host_discover.credential_delivery import managed_binding
+from zog.host_discover.credential_delivery import (
+    administrator_binding,
+    managed_binding,
+)
 from zog.host_identify import credential_delivery
 
 
@@ -99,7 +102,7 @@ def test_incomplete_or_transitioning_control_registry_is_rejected(field):
             bootstrap,
             "primary",
             consumer="station-access",
-            purpose="administrator-bootstrap",
+            purpose="station-administrator-password",
             credential_id="station-admin",
         )
 
@@ -115,3 +118,26 @@ def test_binding_does_not_authorize_arbitrary_bad_purpose():
             purpose="../admin-password",
             credential_id="station-admin",
         )
+
+
+
+def test_administrator_profile_has_fixed_nonsecret_common_binding():
+    saved, bootstrap = fixture()
+    value = administrator_binding(saved, bootstrap, "primary")
+    assert value == credential_delivery.binding(value)
+    assert value == {
+        "host_id": saved["registries"]["primary"]["host_id"],
+        "host_fingerprint": saved["fingerprint"],
+        "installation_id": saved["installation_id"],
+        "state_volume_id": saved["state_volume_id"],
+        "registry_id": "primary",
+        "consumer": "station-access",
+        "purpose": "station-administrator-password",
+        "credential_id": "station-admin",
+    }
+    # This binding proves destination identity only; it carries no account
+    # password, operator approval, delivery authorization, or installation result.
+    encoded = repr(value).lower()
+    assert "operator_approval" not in encoded
+    assert "receiver_grant" not in encoded
+    assert "secret" not in encoded

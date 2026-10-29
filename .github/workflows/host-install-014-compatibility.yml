@@ -68,7 +68,7 @@ jobs:
           import importlib.metadata
           import zog.host_discover
           import zog.host_install
-          assert zog.host_discover.__version__ == "0.4.12"
+          assert zog.host_discover.__version__ == "0.4.13"
           assert zog.host_install.__version__ == "0.14.3"
           assert importlib.metadata.version("host-install") == "0.14.3"
           PY
