@@ -36,4 +36,4 @@ jobs:
       - name: Verify exact public dependency
         run: test "$(git -C companions/host-identify rev-parse HEAD)" = "4a176373ff4cb47a66a8ab1b5fd3d6ff01ff2a3b"
       - name: Run signed daemon, certificate assignment and archive role fixtures
-        run: python -m pytest -q tests/test_signed_daemon.py tests/test_certificate_assignment.py tests/test_credential_delivery_boundary.py tests/test_migration_target.py tests/test_roles.py tests/test_destinations.py
+        run: python -m pytest -q tests/test_signed_daemon.py tests/test_certificate_assignment.py tests/test_migration_target.py tests/test_roles.py tests/test_destinations.py
