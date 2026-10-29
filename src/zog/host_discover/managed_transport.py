@@ -155,6 +155,8 @@ class Runtime:
             self.sessions[rid]=session
         response=self.post(transport,reg,f'/api/hosts/{host}/heartbeat/',dict(report,managed_session=session['jti']),host)
         require(response.get('version')==2 and response.get('host_id')==host and response.get('managed_session')==session['jti'],'managed-heartbeat-response','Response binding mismatch')
+        from .credential_delivery import reject_heartbeat_delivery
+        reject_heartbeat_delivery(response)
         capability=response.get('certificate_assignment')
         if capability is not None:
             require(

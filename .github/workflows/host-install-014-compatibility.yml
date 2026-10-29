@@ -27,7 +27,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: zog144/host-identify
-          ref: 1a5eac0b255c995022db6a3a4c0051efffa748cc
+          ref: 4a176373ff4cb47a66a8ab1b5fd3d6ff01ff2a3b
           path: companions/host-identify
 
       - name: Check out selected public host-install
@@ -50,7 +50,7 @@ jobs:
 
       - name: Verify exact immutable source selections
         run: |
-          test "$(git -C companions/host-identify rev-parse HEAD)" = "1a5eac0b255c995022db6a3a4c0051efffa748cc"
+          test "$(git -C companions/host-identify rev-parse HEAD)" = "4a176373ff4cb47a66a8ab1b5fd3d6ff01ff2a3b"
           test "$(git -C companions/host-install rev-parse HEAD)" = "889f137dc19d1f34fca42fd3dd8df862f8ebae9d"
           test "$(git -C companions/box-control rev-parse HEAD)" = "8249715708c6ef8a1fd30a3fb529b4034ffffe25"
 
@@ -68,7 +68,7 @@ jobs:
           import importlib.metadata
           import zog.host_discover
           import zog.host_install
-          assert zog.host_discover.__version__ == "0.4.11"
+          assert zog.host_discover.__version__ == "0.4.12"
           assert zog.host_install.__version__ == "0.14.3"
           assert importlib.metadata.version("host-install") == "0.14.3"
           PY

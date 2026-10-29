@@ -6,11 +6,11 @@ build-backend = "setuptools.build_meta"
 # aggregate "zog" distribution assembled by release-build.
 [project]
 name = "host-discover"
-version = "0.4.11"
+version = "0.4.12"
 requires-python = ">=3.12"
 license = "BSD-3-Clause OR GPL-3.0-only"
 license-files = ["LICENSE", "LICENSES/*.txt", "THIRD-PARTY-NOTICES.md"]
-dependencies = ["host-identify==0.3.4", "host-install==0.14.3"]
+dependencies = ["host-identify==0.3.5", "host-install==0.14.3"]
 
 [project.scripts]
 host-discover = "zog.host_discover.daemon:main"

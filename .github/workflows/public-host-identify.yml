@@ -24,7 +24,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: zog144/host-identify
-          ref: 1a5eac0b255c995022db6a3a4c0051efffa748cc
+          ref: 4a176373ff4cb47a66a8ab1b5fd3d6ff01ff2a3b
           path: companions/host-identify
       - uses: actions/setup-python@v5
         with:
@@ -34,6 +34,6 @@ jobs:
           python -m pip install ./companions/host-identify 'pytest>=8,<10'
           python -m pip install --no-deps .
       - name: Verify exact public dependency
-        run: test "$(git -C companions/host-identify rev-parse HEAD)" = "1a5eac0b255c995022db6a3a4c0051efffa748cc"
+        run: test "$(git -C companions/host-identify rev-parse HEAD)" = "4a176373ff4cb47a66a8ab1b5fd3d6ff01ff2a3b"
       - name: Run signed daemon, certificate assignment and archive role fixtures
-        run: python -m pytest -q tests/test_signed_daemon.py tests/test_certificate_assignment.py tests/test_migration_target.py tests/test_roles.py tests/test_destinations.py
+        run: python -m pytest -q tests/test_signed_daemon.py tests/test_certificate_assignment.py tests/test_credential_delivery_boundary.py tests/test_migration_target.py tests/test_roles.py tests/test_destinations.py

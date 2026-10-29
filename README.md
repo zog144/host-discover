@@ -7,7 +7,7 @@ and current addresses to the station-access registry, handles explicit key
 approval, and optionally reconciles a leased archive-mirror role. It does not
 hold AWS account credentials or perform central DNS writes.
 
-This public source package is **0.4.11**. Its canonical repository is
+This public source package is **0.4.12**. Its canonical repository is
 [zog144/host-discover](https://github.com/zog144/host-discover). Consumers
 should pin an exact reviewed *public* commit; historical private Git commits
 have separate identities. host-deploy assembles its payload from an approved
@@ -140,6 +140,22 @@ groups 972/973. Native mounted-STATE, NSS, SELinux, systemd, CAS retry and
 enrollment acceptance remain separate Work gates. See
 [host-install 0.14.3 compatibility](docs/host-discover/HOST-INSTALL-0.14-COMPATIBILITY.md).
 
+## Unified HTTPS credential delivery boundary (0.4.12)
+
+host-discover now selects host-identify 0.3.5's shared credential-delivery v1
+protocol, but remains a non-secret integration owner. It can derive exact
+enrolled Host/HostIdentity/installation/STATE/control-registry binding evidence
+for a future protected receiver; it does not receive credential bytes.
+
+Managed heartbeat responses that attempt to advertise `credential_delivery`
+are rejected. Enrollment and the existing inspect-only managed session do not
+authorize provider tokens, administrator passwords or other durable secrets.
+The protected HTTPS receiver belongs to host-install/root ownership and must
+independently verify Credential Authority authorization and local destination
+policy.
+
+See [credential-delivery boundary](docs/host-discover/CREDENTIAL-DELIVERY-BOUNDARY.md).
+
 ## Tests
 
 With the shared library and its dependencies installed, from this directory:
@@ -179,7 +195,7 @@ waits. Pending session requests survive uncertain responses and clean offline
 shutdown; each HTTP attempt has a fresh signature nonce. TLS, authentication,
 protocol, storage and checkpoint failures still block and require investigation.
 No fault, identity or trust reset is automatic. The outage behavior was originally accepted with host-install 0.4.3. The current
-0.4.11 source-compatibility gate pins host-install 0.14.3; graceful helper-safe
+0.4.12 source-compatibility gate pins host-install 0.14.3; graceful helper-safe
 stop remains required and remote commands remain disabled. See the
 [supervisor contract](docs/host-discover/BEACON-SUPERVISOR.md) for precise behavior and limits.
 

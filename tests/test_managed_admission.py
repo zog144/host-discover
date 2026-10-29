@@ -285,3 +285,28 @@ def test_control_registry_opt_in_retrieves_signed_certificate_assignment(local):
         ]
     finally:
         runtime.close()
+
+
+
+def test_managed_heartbeat_cannot_enable_credential_delivery(local):
+    state,_=local
+
+    class CredentialStation(Station):
+        def post(self,url,payload,key,subject,ca):
+            result=super().post(url,payload,key,subject,ca)
+            if url.endswith('/heartbeat/') and self.approved:
+                result['credential_delivery']={
+                    'version':1,
+                    'purpose':'administrator-bootstrap',
+                }
+            return result
+
+    station=CredentialStation();station.approved=True
+    runtime=prepared(state)
+    try:
+        with pytest.raises(StateError,match='credential-delivery-channel-denied'):
+            runtime.tick(station,{'version':1,'hostname':'host'})
+        assert state.fault=='credential-delivery-channel-denied'
+        assert runtime.key is None
+    finally:
+        runtime.close()

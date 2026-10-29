@@ -143,6 +143,7 @@ jobs:
                            "THIRD-PARTY-NOTICES.md", "tests/test_namespace_layout.py",
                            "docs/host-discover/README.md",
                            "docs/host-discover/CERTIFICATE-ASSIGNMENT.md",
+                           "docs/host-discover/CREDENTIAL-DELIVERY-BOUNDARY.md",
                            "docs/host-discover/HOST-INSTALL-0.14-COMPATIBILITY.md"):
                   assert path in files, path
               assert "COPYRIGHT" not in files
@@ -159,7 +160,7 @@ jobs:
 
           import zog.host_discover
 
-          assert zog.host_discover.__version__ == "0.4.11"
+          assert zog.host_discover.__version__ == "0.4.12"
           assert importlib.util.find_spec("host_discover") is None
           assert files("zog.host_discover").joinpath(
               "systemd", "host-discover.service"
