@@ -120,7 +120,7 @@ and the
 ## host-install 0.14.9 successor compatibility and non-resident reporting (0.4.14)
 
 The selected compatibility candidate is host-install
-`c3f12f567d60b0c8bb3da6084acfff82b98dc007` (version 0.14.9). It preserves
+`5c03d935be85622789b18559448e1560066d0a37` (version 0.14.9). It preserves
 the schema-2 resident/non-resident APIs previously selected at 0.14.3 while
 closing the administrator FD source integration's exact package dependency.
 The imported STATE modules are unchanged across the selected 0.14.3→0.14.9
@@ -216,7 +216,7 @@ transitional foreign boot-bundle identity.
 
 Legacy collection and caller-injected fixture reports are not upgraded or
 reinterpreted. The selected current compatibility candidate is host-install 0.14.9 at
-`c3f12f567d60b0c8bb3da6084acfff82b98dc007`. Resident reports retain the
+`5c03d935be85622789b18559448e1560066d0a37`. Resident reports retain the
 existing slot/provenance semantics. Schema-2 non-resident reports instead carry
 the explicit externally-managed host ownership block with null Zog slots and no
 transitional foreign boot bundle.
