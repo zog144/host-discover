@@ -1,7 +1,7 @@
 # host-install 0.14.9 compatibility
 
 **host-discover candidate:** 0.4.14  
-**Selected host-install source:** `c3f12f567d60b0c8bb3da6084acfff82b98dc007` (0.14.9, draft PR #11)  
+**Selected host-install source:** `5c03d935be85622789b18559448e1560066d0a37` (0.14.9, draft PR #11)  
 **Selected host-identify source:** `4a176373ff4cb47a66a8ab1b5fd3d6ff01ff2a3b` (0.3.5)  
 **Selected box-control source:** `8249715708c6ef8a1fd30a3fb529b4034ffffe25`
 
