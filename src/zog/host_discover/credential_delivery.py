@@ -10,7 +10,7 @@ from zog.host_install.state_contract import StateError, require
 from zog.host_identify import credential_delivery
 
 ADMINISTRATOR_CONSUMER = "station-access"
-ADMINISTRATOR_PURPOSE = "station-administrator-password"
+ADMINISTRATOR_PURPOSE = "station-access-administrator-password"
 ADMINISTRATOR_CREDENTIAL_ID = "station-admin"
 
 

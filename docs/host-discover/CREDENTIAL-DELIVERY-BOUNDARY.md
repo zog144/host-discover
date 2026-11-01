@@ -101,7 +101,7 @@ Current source boundaries:
 - certificate DNS provider credentials may later use a reviewed purpose such as
   `issuer-cloudflare-dns01`, with host-install/certify-manage ownership;
 - administrator credential provisioning now has a source-only station-access
-  profile using purpose `station-administrator-password`, consumer
+  profile using purpose `station-access-administrator-password`, consumer
   `station-access`, credential ID `station-admin`. host-discover exposes
   `administrator_binding(...)` only as exact non-secret destination evidence.
   The station-access profile reconciles FIRST-LOGIN, `station_login_file`,
@@ -153,7 +153,7 @@ binding to:
 
 ```text
 consumer = station-access
-purpose = station-administrator-password
+purpose = station-access-administrator-password
 credential_id = station-admin
 ```
 

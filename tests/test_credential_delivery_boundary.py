@@ -102,7 +102,7 @@ def test_incomplete_or_transitioning_control_registry_is_rejected(field):
             bootstrap,
             "primary",
             consumer="station-access",
-            purpose="station-administrator-password",
+            purpose="station-access-administrator-password",
             credential_id="station-admin",
         )
 
@@ -132,7 +132,7 @@ def test_administrator_profile_has_fixed_nonsecret_common_binding():
         "state_volume_id": saved["state_volume_id"],
         "registry_id": "primary",
         "consumer": "station-access",
-        "purpose": "station-administrator-password",
+        "purpose": "station-access-administrator-password",
         "credential_id": "station-admin",
     }
     # This binding proves destination identity only; it carries no account
