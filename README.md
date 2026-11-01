@@ -7,7 +7,7 @@ and current addresses to the station-access registry, handles explicit key
 approval, and optionally reconciles a leased archive-mirror role. It does not
 hold AWS account credentials or perform central DNS writes.
 
-This public source package is **0.4.13**. Its canonical repository is
+This public source package candidate is **0.4.14**. Its canonical repository is
 [zog144/host-discover](https://github.com/zog144/host-discover). Consumers
 should pin an exact reviewed *public* commit; historical private Git commits
 have separate identities. host-deploy assembles its payload from an approved
@@ -117,12 +117,14 @@ See the
 and the
 [root-owned authority handoff](docs/host-discover/CERTIFICATE-AUTHORITY-OWNER-HANDOFF.md).
 
-## host-install 0.14.3 compatibility and non-resident reporting (0.4.11)
+## host-install 0.14.9 successor compatibility and non-resident reporting (0.4.14)
 
-The selected public host-install source is now
-`889f137dc19d1f34fca42fd3dd8df862f8ebae9d` (version 0.14.3).
-This is the first host-discover compatibility selection that explicitly covers
-host-install schema-2 resident/non-resident ownership.
+The selected compatibility candidate is host-install
+`5c03d935be85622789b18559448e1560066d0a37` (version 0.14.9). It preserves
+the schema-2 resident/non-resident APIs previously selected at 0.14.3 while
+closing the administrator FD source integration's exact package dependency.
+The imported STATE modules are unchanged across the selected 0.14.3→0.14.9
+source delta, and CI now requires a clean `pip check`.
 
 The default managed-beacon report path now asks host-install for the installation
 mode before consulting resident-only foreign boot provenance. Resident behavior
@@ -138,7 +140,7 @@ already-built report cannot hide this branch.
 The fixed host-discover STATE identity remains UID/GID 970 with supplementary
 groups 972/973. Native mounted-STATE, NSS, SELinux, systemd, CAS retry and
 enrollment acceptance remain separate Work gates. See
-[host-install 0.14.3 compatibility](docs/host-discover/HOST-INSTALL-0.14-COMPATIBILITY.md).
+[host-install 0.14.9 compatibility](docs/host-discover/HOST-INSTALL-0.14-COMPATIBILITY.md).
 
 ## Unified HTTPS credential delivery boundary (0.4.13)
 
@@ -196,9 +198,8 @@ exponential backoff capped at 60 seconds. Local admission remains checked during
 waits. Pending session requests survive uncertain responses and clean offline
 shutdown; each HTTP attempt has a fresh signature nonce. TLS, authentication,
 protocol, storage and checkpoint failures still block and require investigation.
-No fault, identity or trust reset is automatic. The outage behavior was originally accepted with host-install 0.4.3. The current
-0.4.12 source-compatibility gate pins host-install 0.14.3; graceful helper-safe
-stop remains required and remote commands remain disabled. See the
+No fault, identity or trust reset is automatic. The outage behavior was originally accepted with host-install 0.4.3. The current 0.4.14 compatibility candidate pins host-install 0.14.9 exactly;
+graceful helper-safe stop remains required and remote commands remain disabled. See the
 [supervisor contract](docs/host-discover/BEACON-SUPERVISOR.md) for precise behavior and limits.
 
 Explicit expired-session recovery (0.4.5): see [operator procedure and contract](docs/host-discover/SESSION-RECOVERY.md). Recovery preserves faults; root reset remains separate.
@@ -214,8 +215,8 @@ live root PARTUUID, HOST-A/HOST-B generation identities, and any recorded
 transitional foreign boot-bundle identity.
 
 Legacy collection and caller-injected fixture reports are not upgraded or
-reinterpreted. The selected current producer is host-install 0.14.3 at
-`889f137dc19d1f34fca42fd3dd8df862f8ebae9d`. Resident reports retain the
+reinterpreted. The selected current compatibility candidate is host-install 0.14.9 at
+`5c03d935be85622789b18559448e1560066d0a37`. Resident reports retain the
 existing slot/provenance semantics. Schema-2 non-resident reports instead carry
 the explicit externally-managed host ownership block with null Zog slots and no
 transitional foreign boot bundle.
@@ -231,6 +232,6 @@ Local and public CI fixtures do not establish live host enrollment,
 native-systemd restart/reboot acceptance or production archive-role readiness.
 
 The public CI checks complete package closure, the reviewed host-identify
-integration, and an exact host-install 0.14.3 / box-control companion set.
+integration, and the exact host-install 0.14.9 / box-control compatibility candidate.
 Production mounted-STATE, native systemd, reboot and deployment acceptance remain
 separate Work-owned gates.
