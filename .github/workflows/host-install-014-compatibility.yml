@@ -47,6 +47,14 @@ jobs:
           path: companions/box-control
           persist-credentials: false
 
+      - name: Check out accepted image-build dependency of box-control
+        uses: actions/checkout@v4
+        with:
+          repository: zog144/image-build
+          ref: 5ec60e967b4d3005a0db13666ea5e3dbd2d4255f
+          path: companions/image-build
+          persist-credentials: false
+
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
@@ -56,6 +64,7 @@ jobs:
           test "$(git -C companions/host-identify rev-parse HEAD)" = "4a176373ff4cb47a66a8ab1b5fd3d6ff01ff2a3b"
           test "$(git -C companions/host-install rev-parse HEAD)" = "c3f12f567d60b0c8bb3da6084acfff82b98dc007"
           test "$(git -C companions/box-control rev-parse HEAD)" = "8249715708c6ef8a1fd30a3fb529b4034ffffe25"
+          test "$(git -C companions/image-build rev-parse HEAD)" = "5ec60e967b4d3005a0db13666ea5e3dbd2d4255f"
           python - <<'PY'
           import tomllib
           from pathlib import Path
@@ -74,8 +83,9 @@ jobs:
       - name: Install selected public companions and local source
         run: |
           python -m pip install --upgrade pip
-          python -m pip install ./companions/host-identify 'pytest>=8,<10'
+          python -m pip install ./companions/host-identify 'pytest>=8,<10' 'dbus-next==0.2.3'
           python -m pip install --no-deps ./companions/host-install
+          python -m pip install --no-deps ./companions/image-build
           python -m pip install --no-deps ./companions/box-control/box-control
           python -m pip install --no-deps .
 
