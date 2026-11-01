@@ -1,20 +1,30 @@
-# host-install 0.14.3 compatibility
+# host-install 0.14.9 compatibility
 
-**host-discover release:** 0.4.11  
-**Selected host-install source:** `889f137dc19d1f34fca42fd3dd8df862f8ebae9d`  
-**Selected host-identify source:** `1a5eac0b255c995022db6a3a4c0051efffa748cc`  
+**host-discover candidate:** 0.4.14  
+**Selected host-install source:** `c3f12f567d60b0c8bb3da6084acfff82b98dc007` (0.14.9, draft PR #11)  
+**Selected host-identify source:** `4a176373ff4cb47a66a8ab1b5fd3d6ff01ff2a3b` (0.3.5)  
 **Selected box-control source:** `8249715708c6ef8a1fd30a3fb529b4034ffffe25`
 
-This successor selection is required for the host-install schema-2
-resident/non-resident ownership contract. It also resolves the component
-metadata discrepancy observed by native Work: host-discover no longer declares
-host-install 0.10.0 while being composed with host-install 0.14.3.
+This is the exact successor compatibility candidate for the administrator FD
+source integration. host-discover 0.4.13 required `host-install==0.14.3`;
+the three-owner administrator source contract selected host-install 0.14.9,
+which made an otherwise valid environment fail `pip check`.
+
+0.4.14 fixes that mismatch by selecting **exactly** 0.14.9. It does not
+introduce a version range and does not silently redefine the already published
+0.4.13 source candidate.
+
+The previous accepted compatibility selection was host-install 0.14.3 at
+`889f137dc19d1f34fca42fd3dd8df862f8ebae9d`. Comparing that source to the
+selected 0.14.9 head shows that the host-discover-imported modules are unchanged:
+`state_admission`, `state_contract`, `state_gate`, `state_inspect`,
+`state_io` and `state_probe` are not part of the 0.14.3→0.14.9 file delta.
+The newer installer adds administrator handoff/receipt and other independent
+boot/certificate/profile work without replacing these imported STATE APIs.
 
 ## Resident and non-resident reporting
 
-host-discover no longer reads
-`installer_recorded.foreign_boot_bundle` before determining installation
-ownership mode.
+The schema-2 resident/non-resident behavior accepted with 0.14.3 is retained.
 
 For a **resident** installation, the existing behavior is preserved: a retained
 foreign boot bundle may identify the supported Amazon Linux provenance path and
@@ -23,58 +33,45 @@ attached.
 
 For a **non-resident** installation, host-discover does not read or manufacture
 resident-only fields. It obtains the authoritative ownership block from
-host-install's `host_generation_report()`, which reports:
-
-- schema 2 / `verified-host-install-state-v2`;
-- exact installation ID, record ID/schema and operation;
-- `installation_mode=non-resident`;
-- externally managed host OS / boot / root filesystem;
-- no selected or booted Zog HOST slot;
-- null HOST-A/HOST-B entries; and
-- no transitional foreign boot bundle.
-
-The non-resident path does not infer AWS/cloud identity merely because the host
-happens to run on EC2. Cloud/provider observation is a separate source of
-authority and requires an explicit supported binding rather than resident boot
-provenance.
-
-## Default-report enrollment regression
-
-The privileged supervised-beacon suite converts the retained valid resident
-fixture into a fully valid host-install schema-2 non-resident bundle and calls
-the production `Beacon.tick()` **without injecting a report**.
-
-The test intercepts the actual HTTPS transport boundary after host-discover has
-constructed and Ed25519-signed the enrollment request. It verifies that request
-with the real host identity key and checks the enclosed report. It also makes
-the resident AWS metadata helper fail if called, proving the non-resident branch
-cannot be hidden by a prebuilt report or resident provenance.
-
-A pending enrollment response is returned. The test does not approve a Host or
-manufacture a station identity.
-
-## Imported host-install surface
-
-host-discover 0.4.11 uses the selected 0.14.3 APIs for protected admission,
-STATE validation, fixed account/path ownership, installation ownership mode,
-live generation reporting, health probing and durable root/state I/O. The exact
-compatibility test asserts these functions and call shapes.
+host-install's `host_generation_report()`, reporting externally managed host
+OS/boot/root ownership, null Zog HOST slots and no transitional foreign boot
+bundle.
 
 The fixed host-discover identity remains UID/GID 970 with supplementary groups
 972/973.
 
-## Exact companion CI
+## Imported API and native ownership regression
+
+`tests/test_host_install_014_compatibility.py` asserts:
+
+- exact installed host-install version 0.14.9;
+- STATE account/path constants;
+- retained resident and schema-2 non-resident fixture validation;
+- every host-discover-imported function;
+- exact `state_io` and `state_inspect` call signatures.
+
+`tests/test_host_install_native_compatibility.py` runs as root on a disposable
+GitHub runner and verifies real UID/GID/mode handling, publication/locking and
+fail-closed behavior for incorrectly owned existing STATE directories.
+
+No ownership function is mocked in that privileged fixture.
+
+## Dependency closure
 
 `.github/workflows/host-install-014-compatibility.yml` checks out the exact
-three public companion commits above on Python 3.12 and 3.13. Ordinary source
-tests run unprivileged; root-only supervisor, reporting, retry/recovery and
-native ownership fixtures run under sudo.
+three companion revisions above on Python 3.12 and 3.13, verifies the
+host-install public dual-license/notice inputs, installs the exact components,
+and runs **unconditional `python -m pip check`**.
 
-This CI is source/fixture acceptance. It does not replace the retained
-installation's native systemd, mounted STATE, NSS, enrollment or reboot
-acceptance. Work must continue on the same retained installation using the
-supported explicit supervisor CAS reset only after host-install reviews this
-successor pin.
+The workflow then runs the full nonprivileged host-discover suite and the
+privileged STATE/reporting/recovery fixtures. The candidate is not considered
+compatible if dependency closure requires an exception or ignored mismatch.
 
-Station approval/export remains downstream of an actual pending enrollment
-request and independent fingerprint verification.
+## Scope
+
+This is source/fixture compatibility only. It does not approve host-install PR
+#11 for native installation, enable the administrator FD broker, replace the
+station-access accepted companion manifest, or prove root socket/UID/cgroup,
+signer, HostIdentity receipt, mounted STATE, systemd or reboot acceptance.
+
+Those remain separate owner/native gates.

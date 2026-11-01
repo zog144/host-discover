@@ -1,4 +1,4 @@
-"""Exact public host-install 0.14.3 compatibility contract.
+"""Exact public host-install 0.14.9 compatibility contract.
 
 These tests validate the selected immutable companion's real resident and
 non-resident STATE APIs rather than weakening dependency metadata to satisfy
@@ -51,8 +51,8 @@ def _nonresident(bundle):
 
 
 def test_selected_host_install_version_is_exact():
-    assert host_install.__version__ == "0.14.3"
-    assert metadata.version("host-install") == "0.14.3"
+    assert host_install.__version__ == "0.14.9"
+    assert metadata.version("host-install") == "0.14.9"
 
 
 def test_state_contract_keeps_host_discover_numeric_ownership():
