@@ -125,3 +125,58 @@ attributable rights-holder authorization and complete future distributable
 notices **PENDING**. Production repinning, native issuer/FD/SCM_RIGHTS
 installation, enrollment, real password delivery and Host-signed receipt
 remain **NO-GO**. This source review is not a rights grant or native install.
+
+
+## Independent changed-path ownership inventory (November 2 review extension)
+
+The exact two-tree delta, not merely cumulative file counts, is recorded in
+`verification/admin-credential-changed-path-rights-2026-11-02.json`.
+Every **113** observed changed paths carries its candidate repository,
+accepted/reviewed base, exact head, added/modified/removed/renamed status,
+approximate source role and two deliberately pending decisions:
+`rightsholder_authorization=pending-per-path-owner-attestation` and
+`third_party_or_generated_exception=not-independently-reconciled`.
+This includes the renamed host-discover 0.4.14 compatibility test, not just
+new files. The existing source ledger checker now independently compares
+each recorded change with real `git diff --name-status -M` and refuses a
+tampered, unreviewed file-level rights promotion. CI exercises negative
+forged owner-grant and third-party-exception cases.
+
+**The path inventory is ready for a rights holder to review; the permission
+column is not filled with guessed author identities or legal ownership.**
+An authenticated authorized rights-holder assertion for the exact cumulative
+paths and a real artifact dependency/NOTICE BOM remain outstanding. Do not
+close the rights/distribution authorization gate merely because this source
+inventory is now complete.
+
+## Older station-access #17 dependency chain remains separate
+
+Historical station-access PR #12 at
+`c2540cc5c9a3a0c1fff2748552819685ed2fdff4` source-checked
+host-identify **0.3.5** (`4a176373…`), host-discover **0.4.13**
+(`ebe83775…`) and corrected host-install **0.14.3**
+(`6e8b3792…`). Its PR body and checked candidate manifest retain
+`source-candidate-not-accepted` and rights/native approval PENDING.
+The corrected older host-install has C1 package/module/CLI, C2 whole-disk
+alias/WWN uniqueness/root exclusion, and C3 inherited-WWN read-only
+fixture tests. Station public source and canonical HTTPS workflows passed
+at that historical PR #12 head (runs `41119787785`, `41119787853`).
+
+The newer administrator candidate is **not** a silent repin of that older
+0.4.13/0.14.3 chain: station-access PR #18 at
+`7e8829483c1f2d49b2a4e7f2d97c6c2b9e364a73`
+reviews host-discover **0.4.14** (`4653cbff…`) and host-install **0.14.9**
+(`5c03d935…`), while both still use canonical host-identify 0.3.5.
+The exact-head three-owner FD workflow installs those source candidates
+as editable distributions, requires clean `pip check`, checks versions
+and actual imported component `__file__` paths against immutable checkouts,
+then fails if required negative-security tests are missing or skipped.
+Synthetic root/FD fixtures are explicitly identified as non-native; they
+cannot substitute an independently authenticated source or signer.
+
+**Disposition:** both selected chains have reviewable source compatibility
+evidence and unchanged production pins; neither is a native installation.
+The old #17 dependency review can be marked **source evidence reviewed**
+without converting the new candidate, legal rights-holder signoff, complete
+transitive distribution notices or live protected administrator delivery to
+accepted.
