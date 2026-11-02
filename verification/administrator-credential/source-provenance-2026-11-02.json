@@ -1,0 +1,96 @@
+{
+  "schema": "zog-administrator-credential-source-provenance-v1",
+  "recorded_at": "2026-11-02",
+  "disposition": "reviewed-source-and-consumer-passing; copyright-permission-and-final-distribution-hold",
+  "scope": "source-only; no live credential installation, protected authority replacement, package publication or production pin change",
+  "owner_rights_verification": "pending-independent-per-revision-attestation",
+  "repository_account_observation": "zog144 GitHub admin permission on host-discover, host-install and station-access; commit attribution is not legal copyright authority",
+  "git_commit_signature_observation": "candidate PR commits are unsigned; neither signature presence nor absence decides authorship",
+  "approved_production_manifest": "station-access/public-companion-pins.json unchanged, October 22 source selection; NOT superseded",
+  "first_party_license_expression": "BSD-3-Clause OR GPL-3.0-only",
+  "common_license_text_git_blobs": {
+    "LICENSES/BSD-3-Clause.txt": "7e1ffb223693647c1750e550d9fd7ee94ce4ee0b",
+    "LICENSES/GPL-3.0-only.txt": "f6cdd22a6c1fbc887e08a215cb4beb3c47048041"
+  },
+  "candidates": [
+    {
+      "repository": "zog144/host-identify",
+      "commit": "4a176373ff4cb47a66a8ab1b5fd3d6ff01ff2a3b",
+      "version": "0.3.5",
+      "base": "1a5eac0b255c995022db6a3a4c0051efffa748cc",
+      "license_git_blob": "e9ff0303fc483b30cee48e503f2c86e5b5b140e7",
+      "notices_git_blob": "c365eb11014ac8abeed28f67778b51c9588992c1",
+      "pyproject_git_blob": "8c66720f40fa3c6796215f96a494d0edf30dbeae",
+      "status": "declaration-observed; independent exact-head ownership and contribution permissions pending"
+    },
+    {
+      "repository": "zog144/host-discover",
+      "role": "dependency",
+      "commit": "ed63d8df3cb733192c82b60dd95d13389b9922b5",
+      "version": "0.4.14",
+      "base": "ebe83775e9099fd406f6ad9213a42b25bade5b13",
+      "license_git_blob": "ca56aaf8d8fe938ed915ce2fdb58650ce2721a97",
+      "notices_git_blob": "60264a9c522c3808ba687346ee816202862c6b5b",
+      "pyproject_git_blob": "d1db218c669f3fdb30f81993635dbb52d4f10e00",
+      "status": "declaration-observed; independent exact-head ownership and contribution permissions pending"
+    },
+    {
+      "repository": "zog144/host-discover",
+      "role": "administrator-profile",
+      "commit": "4653cbffcef627dd8945dcb0d14deac5947e97fa",
+      "version": "0.4.14",
+      "base": "ed63d8df3cb733192c82b60dd95d13389b9922b5",
+      "required_parent": "ed63d8df3cb733192c82b60dd95d13389b9922b5",
+      "license_git_blob": "ca56aaf8d8fe938ed915ce2fdb58650ce2721a97",
+      "notices_git_blob": "60264a9c522c3808ba687346ee816202862c6b5b",
+      "pyproject_git_blob": "d1db218c669f3fdb30f81993635dbb52d4f10e00",
+      "status": "declaration-observed; independent exact-head ownership and contribution permissions pending"
+    },
+    {
+      "repository": "zog144/host-install",
+      "commit": "5c03d935be85622789b18559448e1560066d0a37",
+      "version": "0.14.9",
+      "base": "17e3e0e6b9405a3a81dc25575ba2dadcf6bfa588",
+      "license_git_blob": "1b04ccfebcecd431a15e03bd9ff376826c0856f6",
+      "notices_git_blob": "ac7c663f78201cba0f26c0f931e8f6c23e3714bf",
+      "pyproject_git_blob": "660fab378d3341b16a7d81d51f685f48c02bf489",
+      "status": "declaration-observed; independent exact-head ownership and contribution permissions pending"
+    },
+    {
+      "repository": "zog144/station-access",
+      "commit": "a7faf74b23478f473cfb7908306bdc2dd5b3cffc",
+      "version": "0.4.29",
+      "base": "c2540cc5c9a3a0c1fff2748552819685ed2fdff4",
+      "license_git_blob": "256b0d4cade2d0958384ddf803bf198a086796dc",
+      "notices_git_blob": "81946531be927fe6f8beabbaf6d08ea7d93c194e",
+      "pyproject_git_blob": "5dce8723ebfcb704714ccfc0c7ed9ad5f596ec29",
+      "status": "declaration-observed; independent exact-head ownership and contribution permissions pending"
+    }
+  ],
+  "distributable_inputs": {
+    "station_python_tested_requirements_git_blob": "60ade235e24b8bcba29b16a0fd0cfbc144a1d855",
+    "station_python_tested_requirements_path": "requirements-security-tested.txt",
+    "extra_ci_distributions": [
+      "dbus-next==0.2.3",
+      "dnspython>=2.8,<3"
+    ],
+    "station_frontend_reviewed_evidence_git_blob": "08d85e2183a5c524839f9caa44d42841fb97accd",
+    "station_frontend_evidence_path": "frontend/license-evidence.json",
+    "python_wheel_notice_inventory": "generated in CI from acquired wheels; not a legal clearance",
+    "frontend_notice_scope": "Five reviewed exact npm artifact inputs; emitted frontend's hashed notice output must be verified for any actual release",
+    "rootfs_and_native_binaries": "excluded; no artifact-selected rootfs, kernel, TurboVNC, Certbot, or other native third-party notices certified",
+    "separately_redistributed_wheels": "not authorized by this ledger; archive hash, complete notices and applicable source obligations need downstream release review"
+  },
+  "consumer_ci": {
+    "host_discover_exact": "https://github.com/zog144/host-discover/actions/runs/41307288497",
+    "station_three_owner_exact": "https://github.com/zog144/station-access/actions/runs/41312415374",
+    "station_canonical_interop": "https://github.com/zog144/station-access/actions/runs/41312415375",
+    "station_full_public_source": "https://github.com/zog144/station-access/actions/runs/41312415358",
+    "current_reviewed_station_head": "a7faf74b23478f473cfb7908306bdc2dd5b3cffc"
+  },
+  "remaining_requirements": [
+    "Independent rights-holder or authorized grantor per-revision statement for five source heads, including contributor and imported-material scope; link or signed digest required",
+    "Artifact-bound complete wheel/npm/native notice inventory and obligations for exact actual distribution assembled by release-build",
+    "Separate authority, protected native FD and Host-signed receipt acceptance before live deployment"
+  ]
+}
