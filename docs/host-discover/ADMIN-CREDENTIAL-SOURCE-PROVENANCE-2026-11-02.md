@@ -98,6 +98,14 @@ metadata and current candidate Git trees **cannot determine that complete
 set**. The existing source notices explicitly defer it. No aggregate
 distribution is cleared by this ledger.
 
+### Consolidated Python wheel-notice evidence (from PR #6)
+
+This PR is the single maintained administrator-credential provenance handoff. PR #6's distinct wheel-byte notice collector `tools/inventory_admin_credential_wheel_notices.py`, synthetic substitutions/missing-license tests `tests/test_source_provenance_inventory.py`, and [wheel receipt](../../verification/administrator-credential/PYTHON-WHEEL-NOTICE-RECEIPT.md) have been incorporated. The duplicate PR #6 source ledger, Git ancestry checker, and second workflow are intentionally **not** copied: the one authoritative source ledger and verifier above already check ancestry, SPDX declarations, immutable legal blobs, 113 changed paths, source selection, and negative rights/native promotion.
+
+The consolidated GitHub Actions workflow downloads the station-access exact-head `requirements-security-tested.txt` Python wheels and separately selected `dbus-next==0.2.3` and compatible `dnspython` into a disposable wheelhouse. The collector records actual wheel SHA-256, distribution metadata, legal-file SHA-256 and supplied full text into the **review-only** `admin-credential-python-wheel-notice-evidence` artifact (`python-wheel-inventory.json` and `PYTHON-WHEEL-NOTICES.txt`). Negative unit tests reject missing, wrong-version, duplicate/unpinned requirements and swapped wheels; missing license metadata or files remain explicitly flagged for manual inspection.
+
+The earlier PR #6 snapshot found 29 wheels and 52 discoverable legal files; these counts describe that earlier acquisition and are **not** presumed to be the fresh consolidated result. Registry bytes and compatible `dnspython` versions may change, so inspect each new workflow artifact and do not use this transient tested environment as an immutable final distribution BOM. The final assembled release still needs matched wheel hashes, notices, copyright exceptions, source-offer obligations and native/npm/rootfs inventory. **No legal clearance or credential delivery is inferred.**
+
 ## Current consumer CI and no-repin condition
 
 - host-discover PR #2 exact 0.4.14 compatibility with `python -m pip check`
