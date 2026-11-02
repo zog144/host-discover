@@ -117,8 +117,14 @@ def check(root=ROOT, checkout_root=None, ledger_file=EVIDENCE):
     require(accepted["status"]=="accepted","accepted manifest status mutated")
     candidate=json.loads((station/"credential-v1-companion-candidate.json").read_text())
     require(candidate["status"]=="source-candidate-not-accepted"
-            and candidate["rights_acceptance"]=="accepted",
-            "existing source-reviewed candidate changed; independently check before altering")
+            and candidate["rights_acceptance"]=="pending-independent-owner-attestation"
+            and candidate["consumer_acceptance"]=="accepted",
+            "candidate rights and source acceptance must remain distinct")
+    require(all(x["rights_acceptance"]=="pending-independent-owner-attestation"
+                and x["consumer_acceptance"]=="accepted"
+                and x["native_installation_approval"]=="not-authorized"
+                for x in candidate["additional_candidates"]),
+            "additional candidate rights or native approval promoted")
     overrides={
         candidate["repository"]:candidate["candidate_commit"],
         **{x["repository"]:x["candidate_commit"]
