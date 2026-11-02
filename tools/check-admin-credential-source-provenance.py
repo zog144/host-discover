@@ -15,6 +15,7 @@ import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
 EVIDENCE = ROOT / "verification/admin-credential-source-provenance-2026-11-02.json"
+FILE_RIGHTS = ROOT / "verification/admin-credential-changed-path-rights-2026-11-02.json"
 SHA40 = re.compile(r"[0-9a-f]{40}\Z")
 SOURCE_NAMES = ("LICENSE","LICENSES/BSD-3-Clause.txt",
                 "LICENSES/GPL-3.0-only.txt","THIRD-PARTY-NOTICES.md",
@@ -31,7 +32,8 @@ def git(repo, *args):
                                    stderr=subprocess.DEVNULL,text=True).strip()
 
 
-def check(root=ROOT, checkout_root=None, ledger_file=EVIDENCE):
+def check(root=ROOT, checkout_root=None, ledger_file=EVIDENCE,
+          inventory_file=FILE_RIGHTS):
     root=Path(root)
     checkout_root=Path(checkout_root) if checkout_root else root/"candidate"
     ledger=json.loads(Path(ledger_file).read_text())
@@ -44,6 +46,19 @@ def check(root=ROOT, checkout_root=None, ledger_file=EVIDENCE):
         ("native_credential_installation","not-authorized"),
         ("production_pin_change","forbidden")):
         require(ledger.get(field)==value,"unreviewed promotion of "+field)
+    inventory=json.loads(Path(inventory_file).read_text())
+    require(inventory.get("schema")=="zog-admin-credential-file-rights-inventory-v1"
+            and inventory.get("scope")=="exact-source-diff-only"
+            and inventory.get("owner_attestation")=="pending"
+            and inventory.get("artifact_distribution_clearance")=="pending"
+            and inventory.get("no_production_pin_change") is True,
+            "file-level provenance must remain unapproved and immutable")
+    entries=inventory.get("candidates")
+    require(type(entries) is list and len(entries)==4,
+            "file-level candidate sources incomplete")
+    by_name={x.get("repository"):x for x in entries if type(x) is dict}
+    require(len(by_name)==4 and len({x.get("repository") for x in entries})==4,
+            "duplicate or missing per-file candidate")
     revisions=ledger["revisions"]
     require(len(revisions)==4 and {r["repository"] for r in revisions}=={
         "zog144/host-identify","zog144/host-discover",
@@ -66,6 +81,43 @@ def check(root=ROOT, checkout_root=None, ledger_file=EVIDENCE):
                 ==item["ahead"],"cumulative commit count mismatch")
         changed=[f for f in git(repo,"diff","--name-only",original,
                                 item["commit"]).splitlines() if f]
+        # Independently compare every changed source path and rename.
+        # Commit metadata and declared file role are evidence, NOT a grant.
+        reviewed=by_name[item["repository"]]
+        require(reviewed["base"]==original and
+                reviewed["head"]==item["commit"],
+                "per-file inventory ancestry mismatch "+item["repository"])
+        expected=[]
+        for line in git(repo,"diff","--name-status","-M",original,
+                        item["commit"]).splitlines():
+            if not line: continue
+            cells=line.split("\t")
+            label=cells[0][:1]
+            names={"A":"added","M":"modified","D":"removed",
+                   "R":"renamed","C":"copied"}
+            require(label in names and len(cells)==(3 if label in ("R","C") else 2),
+                    "unexpected Git source change category")
+            row={"path":cells[-1],"change":names[label]}
+            if label in ("R","C"): row["previous_path"]=cells[1]
+            expected.append(row)
+        have=reviewed.get("files")
+        require(type(have) is list and len(have)==len(expected),
+                "per-file inventory count mismatch "+item["repository"])
+        for item_row,actual in zip(have,expected):
+            require(type(item_row) is dict and
+                    all(item_row.get(k)==v for k,v in actual.items()) and
+                    set(item_row)==(set(actual)|{
+                        "role","rightsholder_authorization",
+                        "third_party_or_generated_exception"}) and
+                    item_row["role"] in {
+                        "workflow","test","documentation","source",
+                        "packaging-metadata","other"} and
+                    item_row["rightsholder_authorization"]==
+                        "pending-per-path-owner-attestation" and
+                    item_row["third_party_or_generated_exception"]==
+                        "not-independently-reconciled",
+                    "source delta rights classification modified "+
+                    item["repository"]+"/"+actual["path"])
         require(len(changed)==item["change_count"],
                 "cumulative source file count mismatch "+item["repository"])
         for name in SOURCE_NAMES:
