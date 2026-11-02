@@ -16,7 +16,7 @@ permission, future wheel/npm/rootfs distribution authority or native access.
 | host-discover 0.4.14, PR #2 | `ed63d8df3cb733192c82b60dd95d13389b9922b5` | `ebe83775e9099fd406f6ad9213a42b25bade5b13` | 5 commits | Source declarations observed |
 | host-discover 0.4.14, PR #3 | `4653cbffcef627dd8945dcb0d14deac5947e97fa` | Accepted `0f2c6fd5cb33528ed2fe9fd1c855d2f691db6f80` | 18 commits / 25 files | Source declarations observed |
 | host-install 0.14.9, PR #11 | `5c03d935be85622789b18559448e1560066d0a37` | Accepted `e6e474c63749a614fcf934d547d70b2bd12d7ce0` | 183 commits / 60 files | Source declarations observed |
-| station-access 0.4.29, PR #18 | `a7faf74b23478f473cfb7908306bdc2dd5b3cffc` | PR base `c2540cc5c9a3a0c1fff2748552819685ed2fdff4` | 47 commits / 13 files | Source declarations observed |
+| station-access 0.4.29, PR #18 | `7e8829483c1f2d49b2a4e7f2d97c6c2b9e364a73` | PR base `c2540cc5c9a3a0c1fff2748552819685ed2fdff4` | 54 commits / 14 files | Source declarations observed |
 
 The PR #3 ancestry repair is verified: exact PR #2 is an ancestor and its
 additional source delta is **only** `credential_delivery.py`, the
@@ -50,14 +50,12 @@ snapshots, third-party code and installed infrastructure.
 | Source consumer exact identity/compatibility | **PASS** in source tests; not native acceptance |
 | Independently signed rightsholder acceptance of the new immutable revision set | **PENDING** |
 
-The older station-access **candidate** manifest uses
-`rights_acceptance=accepted` to mean its previously recorded **source
-declarations/consumer review**. That is **not** independent holder authorization
-of these cumulative new source revisions. This ledger deliberately uses
+The station-access **candidate** manifest now explicitly uses
+`rights_acceptance=pending-independent-owner-attestation`, retaining
+`consumer_acceptance=accepted` for passing source interoperation. It does not
+assert independent holder authorization of these cumulative revisions. This ledger deliberately uses
 `independent_rightsholder_permission=not-attested` and refuses any automatic
-conversion from source CI to ownership clearance. Do not retroactively
-reinterpret the existing candidate source acceptance as a signed ownership
-grant.
+conversion from source CI to ownership clearance. Do not reinterpret passing source acceptance as a signed ownership grant.
 
 ### Required rightsholder/authorized owner handoff
 
@@ -107,9 +105,9 @@ distribution is cleared by this ledger.
   `41307288497`, `41307288397`, `41307288438` — **PASS**.
 - host-install PR #11 exact revision: admin HTTPS source `41307164907`,
   public source `41307164882` — **PASS**.
-- station-access PR #18 **current** exact `a7faf74b...`: three-owner
-  signed-profile `41312415374`, canonical v1 `41312415375` and full
-  Public Source Acceptance `41312415358` — all **PASS**.
+- station-access PR #18 **current** exact `7e882948...`: three-owner
+  signed-profile `41536187806`, canonical v1 `41536187810` and full
+  Public Source Acceptance `41536188085` — all **PASS**.
 - PR #3 has no direct CI on its merged head; the station three-owner lane
   checks it out exactly. This is documented instead of inventing a run.
 
