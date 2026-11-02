@@ -29,7 +29,8 @@ class AdministratorProvenanceTests(unittest.TestCase):
         self.assertEqual(len({(x["repository"], x.get("role", ""))
                               for x in data["candidates"]}), 5)
         self.assertTrue(all("pending" in x["status"] for x in data["candidates"]))
-        self.assertIn("not authorized", "not authorized")
+        self.assertIn("hold", data["disposition"])
+        self.assertEqual(data["approved_production_manifest"].split(" ")[0], "station-access/public-companion-pins.json")
 
     def test_requirement_file_requires_exact_pins(self):
         with tempfile.TemporaryDirectory() as d:
