@@ -39,7 +39,7 @@ This review must remain blocked on the above; absence of an attestation is **not
 
 ## Third-party distribution inventory and release limits
 
-The candidate runtime uses five separately maintained source components, with versions defined in the JSON ledger and exact source license digests. For station's third-party Python environment, the tested requirements file is `requirements-security-tested.txt` (Git blob `60ade235e24b8bcba29b16a0fd0cfbc144a1d855`), containing **28** exact version pins. Exact testing also selected `dbus-next==0.2.3` and compatible `dnspython>=2.8,<3`. The dependency notice workflow:
+The candidate runtime uses five separately maintained source components, with versions defined in the JSON ledger and exact source license digests. For station's third-party Python environment, the tested requirements file is `requirements-security-tested.txt` (Git blob `60ade235e24b8bcba29b16a0fd0cfbc144a1d855`), containing **27** exact version pins. Exact testing also selected `dbus-next==0.2.3` and compatible `dnspython>=2.8,<3`. The dependency notice workflow:
 
 - downloads the **actual selected wheel bytes** from the registry without modifying a production environment;
 - rejects missing/unexpected/duplicate wheel names or wrong exact requirements;
