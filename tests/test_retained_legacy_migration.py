@@ -30,8 +30,8 @@ def test_migrated_key_selection_preserves_existing_enrollment_and_is_repeatable(
     key, config = configuration()
     saved = {"host_id": config["host_id"], "fingerprint": config["retained_fingerprint"]}
     with patch("zog.host_identify.retained_legacy.load_retained_legacy_fd",
-               return_value=(key, saved)) as retained, \\
-         patch("zog.host_identify.storage.load_key", side_effect=AssertionError("must not initialize")), \\
+               return_value=(key, saved)) as retained, \
+         patch("zog.host_identify.storage.load_key", side_effect=AssertionError("must not initialize")), \
          patch("zog.host_identify.storage.load_existing_key", side_effect=AssertionError("must not fallback")):
         for _ in range(3):
             got = daemon.identity_key(config, identity_fd=11, completion_fd=12)
@@ -49,12 +49,12 @@ def test_offline_control_registry_does_not_invalidate_or_reenroll():
         attempted.append((url, host_id))
         return SimpleNamespace(url=url, body=body, headers={})
     opener = SimpleNamespace(open=lambda *a, **k: (_ for _ in ()).throw(URLError("offline")))
-    with patch("zog.host_identify.retained_legacy.load_retained_legacy_fd", return_value=(key,saved)), \\
-         patch("zog.host_identify.storage.purge_expired"), \\
-         patch("zog.host_identify.storage.clear_credentials", side_effect=AssertionError("must preserve credentials")), \\
-         patch("zog.host_discover.daemon.signatures", create=True) as unused, \\
-         patch("zog.host_identify.signatures.sign", side_effect=sign), \\
-         patch("zog.host_discover.daemon.urllib.request.build_opener", return_value=opener), \\
+    with patch("zog.host_identify.retained_legacy.load_retained_legacy_fd", return_value=(key,saved)), \
+         patch("zog.host_identify.storage.purge_expired"), \
+         patch("zog.host_identify.storage.clear_credentials", side_effect=AssertionError("must preserve credentials")), \
+         patch("zog.host_discover.daemon.signatures", create=True) as unused, \
+         patch("zog.host_identify.signatures.sign", side_effect=sign), \
+         patch("zog.host_discover.daemon.urllib.request.build_opener", return_value=opener), \
          patch("zog.host_discover.roles.Controller") as controller:
         with pytest.raises(URLError):
             daemon.announce(config, {"version":1}, identity_fd=11, completion_fd=12)
@@ -95,8 +95,8 @@ def test_retained_primary_destination_unchanged_and_secondary_denied():
         {"id":"secondary","label":"secondary","server":"https://second.example.invalid",
          "enabled":False,"ca_certificate":"","revision":1},
     ]}
-    with patch("zog.host_identify.storage.read_owned",return_value=json.dumps(rows).encode()), \\
-         patch("zog.host_identify.storage.atomic",side_effect=AssertionError("must not write")), \\
+    with patch("zog.host_identify.storage.read_owned",return_value=json.dumps(rows).encode()), \
+         patch("zog.host_identify.storage.atomic",side_effect=AssertionError("must not write")), \
          patch("zog.host_identify.storage.directory",side_effect=AssertionError("must not create")):
         selected=destinations.configurations(config,"/var/lib/host-discover/beacon-destinations.json")
     assert selected==[(True,config)]
