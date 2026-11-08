@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: zog144/host-identify
-          ref: 4a4b734c67c92f7ab026cda185680513a98fc684
+          ref: 1ca835fcfb9ed20e05ab4322a6598cb09073b515
           path: dependencies/host-identify
           persist-credentials: false
       - uses: actions/checkout@v4
