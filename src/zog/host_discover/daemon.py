@@ -265,8 +265,6 @@ def main():
         from zog.host_identify import storage, signatures
         configuration=selected_configuration()
         if arguments.destinations:
-            if arguments.existing_legacy_migration:
-                raise IdentityUnavailableError('Destination-specific retained identities require separate migration evidence')
             from .destinations import configurations
             print(json.dumps([{'server':c['server'],'enabled':enabled,'fingerprint':signatures.fingerprint(identity_key(c, **migration_fds).public_key())} for enabled,c in configurations(configuration,arguments.destinations)]))
         else:print(signatures.fingerprint(identity_key(configuration, **migration_fds).public_key()))
@@ -279,8 +277,6 @@ def main():
         try:
             configuration=selected_configuration()
             from .destinations import configurations, withdraw
-            if arguments.existing_legacy_migration and arguments.destinations:
-                raise IdentityUnavailableError('Destination-specific retained identities require separate migration evidence')
             targets=configurations(configuration,arguments.destinations) if arguments.destinations else [(True,configuration)]
         except Exception as error:
             logging.error('Beacon configuration unavailable (%s)',type(error).__name__)
