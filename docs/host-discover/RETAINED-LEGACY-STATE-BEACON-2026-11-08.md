@@ -2,6 +2,8 @@
 
 **2026-11-08 · host-discover issue #7 · source-only candidate, native HOLD**
 
+Reviewed consumer pins: host-identify PR #1 `39972469ec01017f83dea488ca5b868d9d691062` (0.3.5 descendant), host-discover PR #8 (0.4.14 descendant of profile PR #3), and host-install PR #36 `8ee7cbff9ea61261025c9d7edf2a1db6fdc0e07e` as the **source-only migration plan**, not a native issuer. The consumer compatibility test installs host-install 0.14.9 PR #11 `5c03d935be85622789b18559448e1560066d0a37` to retain exact package dependency closure; native migration PR #36 is separately reviewed.
+
 This compatibility branch descends from host-discover administrator profile PR #3 `4653cbffcef627dd8945dcb0d14deac5947e97fa`, including the exact 0.4.14 dependency correction in PR #2. It consumes the companion `zog.host_identify.retained_legacy.load_retained_legacy_fd` (host-identify 0.3.5 successor) and preserves the legacy `--configuration` beacon rather than converting the Host to the managed-beacon service.
 
 ## Opt-in consumption
@@ -18,7 +20,7 @@ host-discover --configuration /etc/host-discover/configuration.json
 
 The line breaks above are illustrative command layout, not a literal shell snippet. FD numbers are **already-open** native-provided inherited descriptors, not files or paths parsed from JSON, and must be distinct. Do not pass secret bytes on arguments or in environment variables. The fingerprint is public but must be independently selected from the reviewed existing Host binding; never trust a registry response to replace it.
 
-The exact completion contract and negative checks are in [host-identify retained legacy identity contract](https://github.com/zog144/host-identify/blob/regular/retained-legacy-state-identity-035-20261108/docs/host-identify/RETAINED-LEGACY-STATE-IDENTITY-2026-11-08.md). It requires a durably committed, root-owned-mode 0600 receipt delivered by FD from host-install, with full migration/plan digest, original key/lock/binding/directory inode identities and original Host UUID/fingerprint/control registry; the identity descriptor is checked against the canonical /state path by symlink-safe walk. A managed initialization receipt **cannot** be used to substitute for this legacy-key transaction.
+The exact completion contract and negative checks are in [host-identify retained legacy identity contract](https://github.com/zog144/host-identify/blob/39972469ec01017f83dea488ca5b868d9d691062/docs/host-identify/RETAINED-LEGACY-STATE-IDENTITY-2026-11-08.md). The receipt also binds the optional preserved registry CA inode and SHA-256 (or both null if absent), preventing a silent trust-material substitution. It requires a durably committed, root-owned-mode 0600 receipt delivered by FD from host-install, with full migration/plan digest, original key/lock/binding/directory inode identities and original Host UUID/fingerprint/control registry; the identity descriptor is checked against the canonical /state path by symlink-safe walk. A managed initialization receipt **cannot** be used to substitute for this legacy-key transaction.
 
 The source daemon internally selects `identity_mode=existing-legacy-migration` only when the explicit CLI option is present. Legacy `existing-only` and bootstrap behavior remain unchanged for non-STATE paths; neither may read /state. Mixed managed and migration options are rejected.
 
