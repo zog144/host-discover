@@ -29,9 +29,17 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 def validate_configuration(configuration):
     # A proposed/offline contract is not live mount admission. Fail before any
     # implicit legacy initialization, signing, role action or credential write.
-    if 'host_bootstrap' in configuration or 'state_contract' in configuration or Path(os.path.abspath(configuration.get('identity_directory','/'))).is_relative_to('/state'):
+    migration = configuration.get('identity_mode') == 'existing-legacy-migration'
+    path = Path(os.path.abspath(configuration.get('identity_directory','/')))
+    if 'host_bootstrap' in configuration or 'state_contract' in configuration:
+        raise ValueError('Managed STATE admission is independent from retained legacy migration')
+    if migration:
+        if (str(path) != '/state/host-discover/identity'
+                or not configuration.get('host_id')):
+            raise ValueError('Retained migration requires exact STATE path and existing Host UUID')
+    elif path.is_relative_to('/state'):
         raise ValueError('host-install STATE admission is not implemented; legacy bootstrap is forbidden')
-    if configuration.get('identity_mode','legacy-bootstrap') not in ('legacy-bootstrap','existing-only'):
+    if configuration.get('identity_mode','legacy-bootstrap') not in ('legacy-bootstrap','existing-only','existing-legacy-migration'):
         raise ValueError('Unsupported identity mode')
     origin=urlsplit(configuration['server'])
     if origin.scheme!='https' or not origin.hostname or origin.username or origin.password or origin.query or origin.fragment or origin.path not in ('','/'):
@@ -41,21 +49,41 @@ def validate_configuration(configuration):
         raise ValueError('Use staged migration: remove bearer token from signed daemon configuration')
     for name in ('identity_directory','credential_directory'):
         if not Path(configuration[name]).is_absolute():raise ValueError('Absolute state paths required')
-    from .certificate_assignment import validate_settings
-    validate_settings(configuration)
     if configuration.get('provider','generic') not in ('generic','aws'):
         raise ValueError('Unsupported provider')
     return configuration
 
-def identity_key(configuration):
+def _identity_material(configuration, *, identity_fd=None, completion_fd=None):
     from zog.host_identify import storage
     validate_configuration(configuration)
-    loader=storage.load_existing_key if configuration.get('identity_mode')=='existing-only' else storage.load_key
-    try:return loader(configuration['identity_directory'])
+    mode=configuration.get('identity_mode','legacy-bootstrap')
+    if mode=='existing-legacy-migration':
+        if identity_fd is None or completion_fd is None:
+            raise IdentityUnavailableError('Protected retained migration descriptors required')
+        try:
+            from zog.host_identify.retained_legacy import load_retained_legacy_fd
+            return load_retained_legacy_fd(
+                identity_fd, completion_fd,
+                expected_host_uuid=str(uuid.UUID(configuration['host_id'])),
+                expected_fingerprint=configuration['retained_fingerprint'],
+                expected_registry_origin=configuration['server'],
+                identity_directory=configuration['identity_directory'])
+        except (OSError,ValueError,PermissionError,KeyError,TypeError):
+            raise IdentityUnavailableError('Retained migrated identity unavailable; recovery required') from None
+    if identity_fd is not None or completion_fd is not None:
+        raise IdentityUnavailableError('Migration descriptors forbidden for legacy identity modes')
+    loader=storage.load_existing_key if mode=='existing-only' else storage.load_key
+    try:return loader(configuration['identity_directory']),None
     except (OSError,ValueError,TypeError):
-        if configuration.get('identity_mode')=='existing-only':
+        if mode=='existing-only':
             raise IdentityUnavailableError('Existing identity unavailable; recovery required') from None
         raise
+
+
+def identity_key(configuration, *, identity_fd=None, completion_fd=None):
+    key,_ = _identity_material(configuration, identity_fd=identity_fd,
+                                completion_fd=completion_fd)
+    return key
 
 
 def metadata():
@@ -87,14 +115,20 @@ def collect(configuration):
         report.update({key:configuration[key] for key in ('public_dns','public_ip','private_ip') if key in configuration})
     return report
 
-def announce(configuration, report):
+def announce(configuration, report, *, identity_fd=None, completion_fd=None):
     from zog.host_identify import signatures, storage
     validate_configuration(configuration)
-    key=identity_key(configuration)
+    key,verified_binding=_identity_material(
+        configuration, identity_fd=identity_fd, completion_fd=completion_fd)
     root=Path(configuration['identity_directory'])
+    # In migration mode the binding is read through the retained descriptor and
+    # remains bound to the verified key. Never reopen a substituted path.
+    if verified_binding is not None:
+        saved=verified_binding
+    else:
+        binding=root/'binding.json'
+        saved=json.loads(storage.read_owned(binding,0o600)) if binding.exists() else {}
     storage.purge_expired(configuration['credential_directory'])
-    binding=root/'binding.json'
-    saved=json.loads(storage.read_owned(binding,0o600)) if binding.exists() else {}
     fingerprint=signatures.fingerprint(key.public_key())
     host_id=saved.get('host_id') if saved.get('fingerprint')==fingerprint else None
     target=str(uuid.UUID(configuration['host_id'])) if configuration.get('host_id') else None
@@ -105,6 +139,8 @@ def announce(configuration, report):
         Controller(configuration).tick(withdraw=True)
         raise MigrationBindingError('Saved binding differs from configured migration target; administrator correction required')
     if not host_id:
+        if configuration.get('identity_mode')=='existing-legacy-migration':
+            raise IdentityUnavailableError('Migrated enrollment must never fall back to new enrollment')
         storage.clear_credentials(configuration['credential_directory'])
         from .roles import Controller
         Controller(configuration).tick(withdraw=True)
@@ -175,6 +211,11 @@ def main():
     parser=argparse.ArgumentParser()
     mode=parser.add_mutually_exclusive_group(required=True)
     mode.add_argument('--configuration')
+    parser.add_argument('--existing-legacy-migration',action='store_true',
+                        help='Explicit retained legacy identity after protected migration; requires inherited FDs')
+    parser.add_argument('--retained-identity-fd',type=int)
+    parser.add_argument('--migration-completion-fd',type=int)
+    parser.add_argument('--retained-fingerprint',help='Previously enrolled public key fingerprint from verified migration plan')
     mode.add_argument('--managed-beacon',action='store_true',help='Run explicitly provisioned supervised managed enrollment and heartbeats; no commands')
     mode.add_argument('--managed-state',action='store_true',help='Verify the existing identity using fresh protected observations; no transport')
     parser.add_argument('--destinations',help='Owner-only deployment destination list; additional registries are observation-only')
@@ -198,13 +239,37 @@ def main():
             result={'identity_action':'block','code':'managed-dependency-unavailable','live_admission':False,'remote_control_enabled':False}
         print(json.dumps(result,sort_keys=True))
         raise SystemExit(0 if result.get('status')=='existing-identity-verified' else 2)  # Diagnostic only; no legacy role tick.
+    if arguments.existing_legacy_migration:
+        if (not arguments.configuration or arguments.retained_identity_fd is None
+                or arguments.migration_completion_fd is None
+                or arguments.retained_identity_fd < 3
+                or arguments.migration_completion_fd < 3
+                or arguments.retained_identity_fd == arguments.migration_completion_fd
+                or not arguments.retained_fingerprint):
+            parser.error('Retained migration requires configuration and two distinct inherited FDs')
+    elif (arguments.retained_identity_fd is not None or arguments.migration_completion_fd is not None
+          or arguments.retained_fingerprint is not None):
+        parser.error('Protected migration descriptors require explicit migration selection')
+    migration_fds=dict(identity_fd=arguments.retained_identity_fd,
+                       completion_fd=arguments.migration_completion_fd)
+    def selected_configuration():
+        value=json.loads(Path(arguments.configuration).read_text())
+        if arguments.existing_legacy_migration:
+            # Runtime selection does NOT rewrite the original legacy JSON.
+            if 'identity_mode' in value and value['identity_mode']!='existing-legacy-migration':
+                raise IdentityUnavailableError('Conflicting identity selection')
+            value['identity_mode']='existing-legacy-migration'
+            value['retained_fingerprint']=arguments.retained_fingerprint
+        return validate_configuration(value)
     if arguments.fingerprint:
         from zog.host_identify import storage, signatures
-        configuration=validate_configuration(json.loads(Path(arguments.configuration).read_text()))
+        configuration=selected_configuration()
         if arguments.destinations:
+            if arguments.existing_legacy_migration:
+                raise IdentityUnavailableError('Destination-specific retained identities require separate migration evidence')
             from .destinations import configurations
-            print(json.dumps([{'server':c['server'],'enabled':enabled,'fingerprint':signatures.fingerprint(identity_key(c).public_key())} for enabled,c in configurations(configuration,arguments.destinations)]))
-        else:print(signatures.fingerprint(identity_key(configuration).public_key()))
+            print(json.dumps([{'server':c['server'],'enabled':enabled,'fingerprint':signatures.fingerprint(identity_key(c, **migration_fds).public_key())} for enabled,c in configurations(configuration,arguments.destinations)]))
+        else:print(signatures.fingerprint(identity_key(configuration, **migration_fds).public_key()))
         return
     logging.basicConfig(level=logging.INFO,format='%(asctime)s %(levelname)s %(message)s')
     stop=threading.Event()
@@ -212,8 +277,10 @@ def main():
     while not stop.is_set():
         failed=False
         try:
-            configuration=validate_configuration(json.loads(Path(arguments.configuration).read_text()))
+            configuration=selected_configuration()
             from .destinations import configurations, withdraw
+            if arguments.existing_legacy_migration and arguments.destinations:
+                raise IdentityUnavailableError('Destination-specific retained identities require separate migration evidence')
             targets=configurations(configuration,arguments.destinations) if arguments.destinations else [(True,configuration)]
         except Exception as error:
             logging.error('Beacon configuration unavailable (%s)',type(error).__name__)
@@ -221,16 +288,8 @@ def main():
         for enabled,configuration in targets:
             try:
                 if enabled:
-                    announce(configuration,collect(configuration))
+                    announce(configuration,collect(configuration), **migration_fds)
                     logging.info('Heartbeat accepted')
-                    if (configuration.get('certificate_assignment') is not None
-                            and not configuration.get('observer_only')):
-                        from .certificate_assignment import retrieve
-                        assignment = retrieve(configuration)
-                        logging.info(
-                            'Certificate assignment retrieval accepted (%s)',
-                            assignment['status'],
-                        )
                 else:withdraw(configuration)
             except Exception as error:
                 failed=True
