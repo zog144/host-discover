@@ -215,6 +215,7 @@ def main():
                         help='Explicit retained legacy identity after protected migration; requires inherited FDs')
     parser.add_argument('--retained-identity-fd',type=int)
     parser.add_argument('--migration-completion-fd',type=int)
+    parser.add_argument('--retained-fingerprint',help='Previously enrolled public key fingerprint from verified migration plan')
     mode.add_argument('--managed-beacon',action='store_true',help='Run explicitly provisioned supervised managed enrollment and heartbeats; no commands')
     mode.add_argument('--managed-state',action='store_true',help='Verify the existing identity using fresh protected observations; no transport')
     parser.add_argument('--destinations',help='Owner-only deployment destination list; additional registries are observation-only')
@@ -243,9 +244,11 @@ def main():
                 or arguments.migration_completion_fd is None
                 or arguments.retained_identity_fd < 3
                 or arguments.migration_completion_fd < 3
-                or arguments.retained_identity_fd == arguments.migration_completion_fd):
+                or arguments.retained_identity_fd == arguments.migration_completion_fd
+                or not arguments.retained_fingerprint):
             parser.error('Retained migration requires configuration and two distinct inherited FDs')
-    elif arguments.retained_identity_fd is not None or arguments.migration_completion_fd is not None:
+    elif (arguments.retained_identity_fd is not None or arguments.migration_completion_fd is not None
+          or arguments.retained_fingerprint is not None):
         parser.error('Protected migration descriptors require explicit migration selection')
     migration_fds=dict(identity_fd=arguments.retained_identity_fd,
                        completion_fd=arguments.migration_completion_fd)
@@ -256,6 +259,7 @@ def main():
             if 'identity_mode' in value and value['identity_mode']!='existing-legacy-migration':
                 raise IdentityUnavailableError('Conflicting identity selection')
             value['identity_mode']='existing-legacy-migration'
+            value['retained_fingerprint']=arguments.retained_fingerprint
         return validate_configuration(value)
     if arguments.fingerprint:
         from zog.host_identify import storage, signatures
