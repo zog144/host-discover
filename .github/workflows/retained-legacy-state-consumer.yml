@@ -39,6 +39,6 @@ jobs:
           python -m pip install 'pytest>=8,<10'
           python -m pip check
       - name: Retained identity, disabled enrollment, unchanged beacon and read-only destinations
-        run: python -m pytest -q -ra tests/test_retained_legacy_migration.py tests/test_daemon.py
+        run: python -m pytest -q -ra tests/test_retained_legacy_migration.py tests/test_daemon.py tests/test_signed_daemon.py tests/test_destinations.py tests/test_migration_target.py
       - if: always()
         run: echo 'Synthetic source-only beacon. Host-install native migration, real root-issued receipt/descriptor delivery, actual registry Host and production pins unchanged.' >> "$GITHUB_STEP_SUMMARY"
