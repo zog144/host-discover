@@ -222,6 +222,11 @@ def main():
     parser.add_argument('--once',action='store_true')
     parser.add_argument('--fingerprint',action='store_true',help='Print public key fingerprint for trusted-channel comparison')
     arguments=parser.parse_args()
+    if (arguments.managed_beacon or arguments.managed_state) and (
+            arguments.existing_legacy_migration or arguments.retained_identity_fd is not None
+            or arguments.migration_completion_fd is not None
+            or arguments.retained_fingerprint is not None):
+        parser.error('Retained legacy migration descriptors are forbidden in managed modes')
     if arguments.managed_beacon:
         if arguments.destinations or arguments.fingerprint:
             parser.error('--managed-beacon rejects legacy options')
