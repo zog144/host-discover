@@ -56,6 +56,7 @@ def test_offline_control_registry_does_not_invalidate_or_reenroll():
          patch("zog.host_identify.signatures.sign", side_effect=sign), \
          patch("zog.host_discover.daemon.urllib.request.build_opener", return_value=opener), \
          patch("zog.host_discover.roles.Controller") as controller:
+        controller.return_value.tick.return_value = {"status":"unchanged"}
         with pytest.raises(URLError):
             daemon.announce(config, {"version":1}, identity_fd=11, completion_fd=12)
     assert attempted == [(config["server"] + "/api/hosts/" + config["host_id"] + "/heartbeat/", config["host_id"])]
