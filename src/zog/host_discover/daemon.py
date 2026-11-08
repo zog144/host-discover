@@ -255,8 +255,9 @@ def main():
     elif (arguments.retained_identity_fd is not None or arguments.migration_completion_fd is not None
           or arguments.retained_fingerprint is not None):
         parser.error('Protected migration descriptors require explicit migration selection')
-    migration_fds=dict(identity_fd=arguments.retained_identity_fd,
-                       completion_fd=arguments.migration_completion_fd)
+    migration_fds=(dict(identity_fd=arguments.retained_identity_fd,
+                            completion_fd=arguments.migration_completion_fd)
+                       if arguments.existing_legacy_migration else {})
     def selected_configuration():
         value=json.loads(Path(arguments.configuration).read_text())
         if arguments.existing_legacy_migration:
