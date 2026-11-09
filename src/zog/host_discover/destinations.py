@@ -33,6 +33,21 @@ def configurations(base,path):
             try:ssl.create_default_context(cadata=pem)
             except (ValueError,ssl.SSLError):raise ValueError('Invalid CA certificate') from None
     if primary not in seen:raise ValueError('Keep the existing primary registry in the list, disabled if necessary')
+    if base.get('identity_mode') == 'existing-legacy-migration':
+        # The old primary registry may remain in the existing destinations
+        # file. Do not create marker, secondary identity, CA, or credentials.
+        # Another enrolled secondary needs its own independent migration
+        # completion; never invent or enrol it using the primary key.
+        if any(row['enabled'] and origin(row['server']) != primary for row in rows):
+            raise PermissionError('Enabled secondary registry requires separate retained identity completion')
+        primary_row = next(row for row in rows if origin(row['server']) == primary)
+        config = dict(base)
+        if primary_row['ca_certificate']:
+            ca = Path(config['identity_directory']) / 'registry-ca.pem'
+            if storage.read_owned(ca, 0o600).decode() != primary_row['ca_certificate']:
+                raise PermissionError('Retained primary CA differs from selected destination')
+            config['ca_file'] = str(ca)
+        return [(primary_row['enabled'], config)]
     root=storage.directory(base['identity_directory'])
     marker=root/'primary-origin.json'
     if marker.exists():

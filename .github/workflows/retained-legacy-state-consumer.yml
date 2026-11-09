@@ -1,0 +1,44 @@
+name: Retained legacy STATE beacon consumer source
+on:
+  push:
+    branches: [regular/retained-legacy-state-consumer-0414-20261108]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  retained-beacon:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.12','3.13']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: zog144/host-identify
+          ref: 3fd8bd0bf6ae53a2b9f9214b2eac7f2eb2a492f9
+          path: dependencies/host-identify
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: zog144/host-install
+          ref: 5c03d935be85622789b18559448e1560066d0a37
+          path: dependencies/host-install
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: |
+          python -m pip install -e dependencies/host-identify
+          python -m pip install --no-deps -e dependencies/host-install
+          python -m pip install --no-deps -e .
+          python -m pip install 'pytest>=8,<10'
+          python -m pip check
+      - name: Retained identity, disabled enrollment, unchanged beacon and read-only destinations
+        run: python -m pytest -q -ra tests/test_retained_legacy_migration.py tests/test_daemon.py tests/test_signed_daemon.py tests/test_destinations.py tests/test_migration_target.py
+      - if: always()
+        run: echo 'Synthetic source-only beacon. Host-install native migration, real root-issued receipt/descriptor delivery, actual registry Host and production pins unchanged.' >> "$GITHUB_STEP_SUMMARY"
