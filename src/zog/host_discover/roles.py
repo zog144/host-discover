@@ -89,7 +89,8 @@ def validate(value, now=None):
 class Controller:
     def __init__(self, configuration, adapter=None):
         self.configuration = configuration
-        self.root = storage.directory(configuration['identity_directory'])
+        from .role_state import role_directory
+        self.root = role_directory(configuration)
         self.path = self.root / 'mirror-role.json'
         self.adapter = adapter
 
