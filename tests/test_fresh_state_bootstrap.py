@@ -137,11 +137,11 @@ def test_new_registry_receives_genuine_unbound_enrollment(state_identity):
         def __exit__(self, *args): pass
         def read(self, n): return b'{"status":"pending"}'
     opener = SimpleNamespace(open=lambda request, timeout: Reply())
-    with patch("zog.host_identify.signatures.sign", side_effect=sign), \\
+    with patch("zog.host_identify.signatures.sign", side_effect=sign), \
          patch("zog.host_discover.daemon.urllib.request.build_opener",
-               return_value=opener), \\
-         patch("zog.host_identify.storage.purge_expired"), \\
-         patch("zog.host_identify.storage.clear_credentials"), \\
+               return_value=opener), \
+         patch("zog.host_identify.storage.purge_expired"), \
+         patch("zog.host_identify.storage.clear_credentials"), \
          patch("zog.host_discover.roles.Controller") as controller:
         daemon.announce(cfg, {"version":1})
     assert len(attempted) == 1
