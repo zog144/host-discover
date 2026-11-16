@@ -77,8 +77,6 @@ def load_or_create(root, registry, *, claimed_host_id=None):
     Directory provisioning is an installer responsibility: absent directories
     are not created here. Never adopts an existing unmarked key/binding.
     """
-    if claimed_host_id:
-        raise IdentityStateError("Fresh STATE bootstrap must not claim an old Host UUID")
     if not isinstance(root, str) or not root.startswith("/state/"):
         raise IdentityStateError("Explicit canonical /state identity directory required")
     if os.path.normpath(root) != root or "//" in root:
@@ -87,6 +85,8 @@ def load_or_create(root, registry, *, claimed_host_id=None):
     with directory_fd(root) as fd:
         names = set(os.listdir(fd))
         if names == INITIAL:
+            if claimed_host_id:
+                raise IdentityStateError("New STATE identity cannot claim an existing Host UUID")
             # Exclusive O_EXCL lock creation refuses concurrent bootstrap. A
             # crash after this step leaves incomplete state, never a new key.
             lock_fd = os.open("key.lock", os.O_CREAT | os.O_EXCL | os.O_RDWR |
@@ -114,6 +114,13 @@ def load_or_create(root, registry, *, claimed_host_id=None):
                           os.O_NONBLOCK, dir_fd=fd)
         try:
             fcntl.flock(lock_fd, fcntl.LOCK_SH)
-            return _validate(fd, registry)
+            key = _validate(fd, registry)
+            if claimed_host_id:
+                if "binding.json" not in set(os.listdir(fd)):
+                    raise IdentityStateError("Claimed Host UUID lacks a verified new enrollment")
+                binding = json.loads(read(fd, "binding.json"))
+                if binding["host_id"] != claimed_host_id:
+                    raise IdentityStateError("Configured Host UUID differs from new enrollment")
+            return key
         finally:
             os.close(lock_fd)
