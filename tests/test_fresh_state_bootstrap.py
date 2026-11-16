@@ -151,3 +151,27 @@ def test_new_registry_receives_genuine_unbound_enrollment(state_identity):
     assert payload["public_key"] and signing_fp == json.loads(
         (state_identity / MARKER).read_text())["fingerprint"]
     assert not (state_identity / "binding.json").exists()
+
+
+def test_only_newly_approved_binding_can_be_used_after_restart(state_identity):
+    root = state_identity
+    cfg = config(root)
+    key = daemon.identity_key(cfg)
+    approved = str(uuid.uuid4())
+    identity_fp = fingerprint(key.public_key())
+    (root / "binding.json").write_text(json.dumps({
+        "host_id": approved, "fingerprint": identity_fp}))
+    (root / "binding.json").chmod(0o600)
+    cfg["host_id"] = approved
+    assert fingerprint(daemon.identity_key(cfg).public_key()) == identity_fp
+    cfg["host_id"] = str(uuid.uuid4())
+    with pytest.raises(daemon.IdentityUnavailableError):
+        daemon.identity_key(cfg)
+
+
+def test_claimed_old_host_uuid_cannot_create_fresh_key(state_identity):
+    cfg = config(state_identity)
+    cfg["host_id"] = str(uuid.uuid4())
+    with pytest.raises(daemon.IdentityUnavailableError):
+        daemon.identity_key(cfg)
+    assert not list(state_identity.iterdir())
