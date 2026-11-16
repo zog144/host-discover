@@ -21,6 +21,9 @@ MARKER = "fresh-state-bootstrap.json"
 INITIAL = frozenset()
 CREATED = frozenset({"key.lock", "identity.pem", MARKER})
 ENROLLED = CREATED | {"binding.json"}
+# Earlier fresh-beacon revisions wrote these files before role-state separation.
+# They are admitted only temporarily for safe same-inode relocation.
+OLD_ROLE = frozenset({"mirror-role.lock", "mirror-role.json"})
 
 
 def _regular(fd, name):
@@ -43,7 +46,7 @@ def _marker(key, registry):
 
 def _validate(fd, registry):
     names = set(os.listdir(fd))
-    if names not in (CREATED, ENROLLED):
+    if names - OLD_ROLE not in (CREATED, ENROLLED):
         raise IdentityStateError("Fresh STATE identity is incomplete or contains foreign state")
     for name in names:
         _regular(fd, name)
@@ -107,7 +110,7 @@ def load_or_create(root, registry, *, claimed_host_id=None):
                 return _validate(fd, registry)
             finally:
                 os.close(lock_fd)
-        if names not in (CREATED, ENROLLED):
+        if names - OLD_ROLE not in (CREATED, ENROLLED):
             raise IdentityStateError("Existing identity cannot be adopted as a fresh bootstrap")
         _regular(fd, "key.lock")
         lock_fd = os.open("key.lock", os.O_RDONLY | os.O_NOFOLLOW |

@@ -1,7 +1,7 @@
 name: Fresh directory STATE legacy bootstrap source
 on:
   push:
-    branches: [regular/fresh-state-legacy-bootstrap-20261116]
+    branches: [regular/fresh-state-role-separation-20261116]
   workflow_dispatch:
 permissions:
   contents: read
@@ -39,7 +39,7 @@ jobs:
           python -m pip install --no-deps -e .
           python -m pip check
       - name: Source tests with disposable newly prepared /state directory
-        run: sudo --preserve-env=PATH "$(command -v python)" -m pytest -q -ra tests/test_fresh_state_bootstrap.py
+        run: sudo --preserve-env=PATH "$(command -v python)" -m pytest -q -ra tests/test_fresh_state_bootstrap.py tests/test_fresh_role_isolation.py
       - name: Existing non-STATE and retained migration regressions
         run: python -m pytest -q -ra tests/test_daemon.py tests/test_retained_legacy_migration.py tests/test_signed_daemon.py tests/test_destinations.py tests/test_migration_target.py
       - if: always()
