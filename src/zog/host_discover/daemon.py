@@ -37,8 +37,6 @@ def validate_configuration(configuration):
         if (str(path) != '/state/host-discover/identity'
                 or not configuration.get('host_id')):
             raise ValueError('Retained migration requires exact STATE path and existing Host UUID')
-    elif path.is_relative_to('/state'):
-        raise ValueError('host-install STATE admission is not implemented; legacy bootstrap is forbidden')
     if configuration.get('identity_mode','legacy-bootstrap') not in ('legacy-bootstrap','existing-only','existing-legacy-migration'):
         raise ValueError('Unsupported identity mode')
     origin=urlsplit(configuration['server'])
@@ -74,6 +72,14 @@ def _identity_material(configuration, *, identity_fd=None, completion_fd=None):
             raise IdentityUnavailableError('Retained migrated identity unavailable; recovery required') from None
     if identity_fd is not None or completion_fd is not None:
         raise IdentityUnavailableError('Migration descriptors forbidden for legacy identity modes')
+    if mode=='legacy-bootstrap' and Path(configuration['identity_directory']).is_relative_to('/state'):
+        from .fresh_state_identity import load_or_create
+        try:
+            return load_or_create(
+                configuration['identity_directory'], configuration['server'],
+                claimed_host_id=configuration.get('host_id')), None
+        except (OSError, ValueError, PermissionError, TypeError) as error:
+            raise IdentityUnavailableError('Fresh STATE identity unavailable; installer repair required') from error
     loader=storage.load_existing_key if mode=='existing-only' else storage.load_key
     try:return loader(configuration['identity_directory']),None
     except (OSError,ValueError,TypeError):
