@@ -75,8 +75,11 @@ def test_missing_or_conflicting_receipts_never_load_or_generate():
 
 def test_state_path_requires_explicit_selection_and_old_legacy_is_unchanged():
     key, config = configuration()
-    with pytest.raises(ValueError):
-        daemon.validate_configuration(dict(config, identity_mode="existing-only"))
+    # Validation no longer bans /state by path; the legacy existing-key
+    # API itself still requires a non-STATE identity.
+    daemon.validate_configuration(dict(config, identity_mode="existing-only"))
+    with pytest.raises(daemon.IdentityUnavailableError):
+        daemon.identity_key(dict(config, identity_mode="existing-only"))
     with pytest.raises(ValueError):
         daemon.validate_configuration(dict(config, identity_directory="/state/other/identity"))
     with pytest.raises(ValueError):
