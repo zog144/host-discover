@@ -187,7 +187,22 @@ class ApprovedBeacon(Beacon):
         self.guard()
         require(self.saved['registries'][reg['registry_id']]['host_id'] == self.expected['host_id'],
                 'station-binding-conflict', 'Approved Host binding required')
-        return super().registry(transport, reg, report)
+        result = super().registry(transport, reg, report)
+        self.guard()
+        session = self.sessions[reg['registry_id']]
+        self.verified_binding = {name:session[name] for name in (
+            'sub', 'fingerprint', 'installation_id', 'state_volume_id',
+            'registry_id', 'boot_id', 'epoch', 'checkpoint', 'exp')}
+        self.verified_binding['host_id'] = self.verified_binding.pop('sub')
+        self.verified_binding['authority_id'] = self.expected['authority_id']
+        self.verified_binding['station_key_id'] = self.expected['station_key_id']
+        # No session token, private key, or credential material in diagnostics.
+        return result
+
+    def certificate_assignment(self, *args, **kwargs):
+        # This profile proves managed admission only. Certificate assignment
+        # trust installation and protected credential delivery are separate gates.
+        return {'status':'not-requested'}
 
 
 def wait_checked(runtime, stop, seconds, clock=time.monotonic):
@@ -227,8 +242,12 @@ def run(once=False, approved=False):
             try:
                 runtime.open()
                 status = loop(runtime, stop, once)
+                binding = getattr(runtime, 'verified_binding', None) if approved and once and status == 'managed-beacon-stopped' else None
                 runtime.finish()
             finally: runtime.close()
-        return {'status':status, 'remote_control_enabled':False}
+        result = {'status':status, 'remote_control_enabled':False}
+        if binding is not None:
+            result['verified_binding'] = binding
+        return result
     except (StateError, OSError, ValueError) as exc:
         return {'status':'blocked', 'code':getattr(exc,'code','managed-state-fault'), 'remote_control_enabled':False}
