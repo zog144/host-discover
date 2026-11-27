@@ -32,6 +32,12 @@ class Runtime:
         self.key=None;self.sessions.clear()
         self.state.fail(getattr(error,'code','managed-admission-failed'))
 
+    def initial_journal(self, binding):
+        return dict(schema=1,kind='zog-managed-journal',**binding,registries={},replay=[])
+
+    def validate_station_key(self, reg, key):
+        """Fixture runtime has no production authority selection."""
+
     def open(self,prepare=False):
         try:
             b=self.state.context.bundle['bootstrap'];self.bootstrap=b
@@ -43,7 +49,7 @@ class Runtime:
             binding=dict(installation_id=b['installation_id'],state_volume_id=b['state']['state_volume_id'],fingerprint=self.observation['receipt']['fingerprint'])
             if prepare:
                 require(set(__import__('os').listdir(self.journal.fd))=={'managed.lock'},'managed-state-exists','Preparation never adopts existing control state')
-                self.journal.write(dict(schema=1,kind='zog-managed-journal',**binding,registries={},replay=[]))
+                self.journal.write(self.initial_journal(binding))
             self.saved=self.journal.read()
             require(all(self.saved[k]==v for k,v in binding.items()),'managed-binding-conflict','Journal is for another identity')
             self.resuming={rid for rid,row in self.saved['registries'].items() if row['pending'] is not None}
@@ -126,6 +132,7 @@ class Runtime:
             response=self.post(transport,reg,f'/api/hosts/{host}/managed-session/',row['pending'],host)
             require(set(response)=={'version','public_key','session'} and response['version']==1,'managed-session-response','Unsupported response')
             key=signatures.public_key(response['public_key'])
+            self.validate_station_key(reg,key)
             require(row['public_key'] is None or row['public_key']==response['public_key'],'station-key-conflict','Explicit key transition required')
             expected=dict(iss=reg['origin'].rstrip('/'),aud=self.bootstrap['control_authority']['authority_id'],sub=host,
                 fingerprint=data['fingerprint'],installation_id=data['installation_id'],state_volume_id=data['state_volume_id'],
