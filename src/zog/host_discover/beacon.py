@@ -140,6 +140,56 @@ class Beacon(Runtime):
         self.guard(); self.supervisor.finish(); self.close()
 
 
+class ApprovedBeacon(Beacon):
+    """Explicit supervised HTTPS for an independently approved existing Host."""
+    def open(self, prepare=False):
+        from . import approved_binding
+        try:
+            self.expected = approved_binding.load(self.state.context.bundle['bootstrap'])
+        except Exception as exc:
+            self.state.fail(getattr(exc, 'code', 'station-binding-unavailable'))
+        return super().open(prepare)
+
+    def initial_journal(self, binding):
+        require(binding['fingerprint'] == self.expected['fingerprint'],
+                'station-binding-conflict', 'Retained identity differs from approved Host')
+        value = super().initial_journal(binding)
+        reg = self.bootstrap['registries'][0]
+        value['registries'][reg['registry_id']] = dict(
+            origin=reg['origin'], role='control', host_id=self.expected['host_id'],
+            public_key=None, previous=None, pending=None)
+        return value
+
+    def guard(self):
+        from . import approved_binding
+        super().guard()
+        require(approved_binding.load(self.state.context.bundle['bootstrap']) == self.expected,
+                'station-binding-changed', 'Independent station expectation changed')
+        require(self.observation['receipt']['fingerprint'] == self.expected['fingerprint'],
+                'station-binding-conflict', 'Consumed identity differs from approved Host')
+        if self.saved is not None:
+            require(not self.saved['replay'], 'station-binding-conflict',
+                    'Command history is outside the approved beacon profile')
+            row = self.saved['registries'].get(self.expected['registry_id'])
+            require(row is not None and len(self.saved['registries']) == 1
+                    and row['host_id'] == self.expected['host_id'],
+                    'station-binding-conflict', 'Existing journal lacks the approved Host binding')
+            if row['public_key'] is not None:
+                self.validate_station_key(self.bootstrap['registries'][0],
+                                          signatures.public_key(row['public_key']))
+
+    def validate_station_key(self, reg, key):
+        require(reg['registry_id'] == self.expected['registry_id']
+                and signatures.fingerprint(key) == self.expected['station_key_id'],
+                'station-signer-conflict', 'Session signer differs from independent expectation')
+
+    def registry(self, transport, reg, report):
+        self.guard()
+        require(self.saved['registries'][reg['registry_id']]['host_id'] == self.expected['host_id'],
+                'station-binding-conflict', 'Approved Host binding required')
+        return super().registry(transport, reg, report)
+
+
 def wait_checked(runtime, stop, seconds, clock=time.monotonic):
     deadline = clock() + seconds
     while not stop.is_set():
@@ -168,12 +218,12 @@ def loop(runtime, stop, once=False):
     return 'managed-beacon-stopped'
 
 
-def run(once=False):
+def run(once=False, approved=False):
     stop = threading.Event()
     for number in (signal.SIGTERM, signal.SIGINT): signal.signal(number, lambda *_:stop.set())
     try:
         with ManagedState() as state:
-            runtime = Beacon(state)
+            runtime = (ApprovedBeacon if approved else Beacon)(state)
             try:
                 runtime.open()
                 status = loop(runtime, stop, once)
