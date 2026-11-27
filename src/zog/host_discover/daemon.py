@@ -176,16 +176,17 @@ def main():
     mode=parser.add_mutually_exclusive_group(required=True)
     mode.add_argument('--configuration')
     mode.add_argument('--managed-beacon',action='store_true',help='Run explicitly provisioned supervised managed enrollment and heartbeats; no commands')
+    mode.add_argument('--managed-approved-beacon',action='store_true',help='Run supervised HTTPS for an independently approved Host and station signer; no enrollment or commands')
     mode.add_argument('--managed-state',action='store_true',help='Verify the existing identity using fresh protected observations; no transport')
     parser.add_argument('--destinations',help='Owner-only deployment destination list; additional registries are observation-only')
     parser.add_argument('--once',action='store_true')
     parser.add_argument('--fingerprint',action='store_true',help='Print public key fingerprint for trusted-channel comparison')
     arguments=parser.parse_args()
-    if arguments.managed_beacon:
+    if arguments.managed_beacon or arguments.managed_approved_beacon:
         if arguments.destinations or arguments.fingerprint:
             parser.error('--managed-beacon rejects legacy options')
         from .beacon import run
-        result=run(arguments.once)
+        result=run(arguments.once, approved=True) if arguments.managed_approved_beacon else run(arguments.once)
         print(json.dumps(result,sort_keys=True))
         raise SystemExit(0 if result['status']=='managed-beacon-stopped' else 2)
     if arguments.managed_state:
