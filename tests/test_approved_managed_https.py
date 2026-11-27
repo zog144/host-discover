@@ -67,7 +67,7 @@ def test_unknown_signer_denied_on_first_session_before_heartbeat(environment, mo
         assert runtime.saved['registries']['primary']['previous'] is None
         assert runtime.saved['registries']['primary']['pending'] is not None
         assert not runtime.sessions
-        assert not hasattr(runtime, 'verified_binding')
+        assert runtime.verified_binding is None
     finally:
         runtime.close()
 
@@ -170,7 +170,7 @@ def test_real_https_approved_session_heartbeat_expiry_and_reconnect(environment,
         lose[0]=True
         with pytest.raises(RetryableTransport):
             runtime.tick(report={'version':1})
-        assert not runtime.sessions
+        assert not runtime.sessions and runtime.verified_binding is None
         runtime.tick(report={'version':1})
         assert runtime.verified_binding['epoch']==3
         runtime.finish()
@@ -183,3 +183,37 @@ def test_real_https_approved_session_heartbeat_expiry_and_reconnect(environment,
     finally:
         if runtime is not None:runtime.close()
         server.shutdown();server.server_close();thread.join(5)
+
+
+def test_real_root_owned_pin_rejects_unsafe_path_and_file(environment, monkeypatch):
+    import os
+    import tempfile
+    from pathlib import Path
+    from zog.host_install.state_contract import canonical
+    if os.geteuid() != 0:
+        pytest.skip('root-owned synthetic pin fixture')
+    state, _, _ = environment
+    station = Station()
+    value = expectation(state, station)
+    with tempfile.TemporaryDirectory(prefix='zog-approved-pin-', dir='/root') as tmp:
+        root = Path(tmp)
+        path = root/'binding.json'
+        path.write_bytes(canonical(value)); path.chmod(0o444)
+        monkeypatch.setattr(approved_binding,'PATH',str(path))
+        assert approved_binding.load(state.bundle['bootstrap']) == value
+        path.chmod(0o644)
+        with pytest.raises(StateError):
+            approved_binding.load(state.bundle['bootstrap'])
+        path.chmod(0o444)
+        (root/'alias').hardlink_to(path)
+        with pytest.raises(StateError):
+            approved_binding.load(state.bundle['bootstrap'])
+        (root/'alias').unlink()
+        root.chmod(0o777)
+        with pytest.raises(StateError):
+            approved_binding.load(state.bundle['bootstrap'])
+        root.chmod(0o700)
+        path.rename(root/'retained.json')
+        path.symlink_to(root/'retained.json')
+        with pytest.raises(OSError):
+            approved_binding.load(state.bundle['bootstrap'])
