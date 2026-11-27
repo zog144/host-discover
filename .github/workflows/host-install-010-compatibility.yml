@@ -2,7 +2,7 @@ name: Exact host-install 0.10 compatibility
 
 on:
   push:
-    branches: [main, unstable]
+    branches: [main, unstable, regular/approved-managed-https-20261127]
   pull_request:
     branches: [main, unstable]
   workflow_dispatch:
@@ -59,8 +59,11 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install ./companions/host-identify 'pytest>=8,<10'
           python -m pip install --no-deps ./companions/host-install
-          python -m pip install --no-deps ./companions/box-control/box-control
           python -m pip install --no-deps .
+          # Check the deployed beacon closure, before adding the historical
+          # optional controller test fixture (not used by the beacon profile).
+          python -m pip check
+          python -m pip install --no-deps ./companions/box-control/box-control
 
       - name: Confirm selected component versions
         run: |
@@ -82,6 +85,7 @@ jobs:
             --ignore=tests/test_network_retry.py \
             --ignore=tests/test_session_recovery.py \
             --ignore=tests/test_supervised_beacon.py \
+            --ignore=tests/test_approved_managed_https.py \
             --ignore=tests/test_host_install_native_compatibility.py
 
       - name: Run privileged STATE and recovery fixtures with real ownership
@@ -90,4 +94,5 @@ jobs:
             tests/test_network_retry.py \
             tests/test_session_recovery.py \
             tests/test_supervised_beacon.py \
+            tests/test_approved_managed_https.py \
             tests/test_host_install_native_compatibility.py
