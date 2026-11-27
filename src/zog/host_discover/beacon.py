@@ -170,7 +170,7 @@ class ApprovedBeacon(Beacon):
 
     def guard(self):
         from . import approved_binding
-        super().guard()
+        self.state.check()
         require(approved_binding.load(self.state.context.bundle['bootstrap']) == self.expected,
                 'station-binding-changed', 'Independent station expectation changed')
         require(self.observation['receipt']['fingerprint'] == self.expected['fingerprint'],
@@ -185,6 +185,15 @@ class ApprovedBeacon(Beacon):
             if row['public_key'] is not None:
                 self.validate_station_key(self.bootstrap['registries'][0],
                                           signatures.public_key(row['public_key']))
+        super().guard()
+
+    def fail(self, error):
+        self.verified_binding = None
+        return super().fail(error)
+
+    def transport_failure(self, error):
+        self.verified_binding = None
+        return super().transport_failure(error)
 
     def validate_station_key(self, reg, key):
         require(reg['registry_id'] == self.expected['registry_id']
