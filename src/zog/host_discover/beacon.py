@@ -71,6 +71,9 @@ class Beacon(Runtime):
                 finally:os.close(fd)
         finally:os.close(home)
 
+    def allow_initial_expected_uuid(self):
+        return False
+
     def open(self, prepare=False):
         require(not prepare, 'managed-prepare-disabled', 'Preparation requires protected supervisor authorization')
         try:
@@ -78,7 +81,8 @@ class Beacon(Runtime):
             require(len(b['registries']) == 1 and b['registries'][0]['role'] == 'control' and b['registries'][0]['registry_id'] == b['control_authority']['registry_id'], 'managed-profile', 'Initial beacon profile requires exactly one control registry')
             self.initial = self.supervisor.begin()
             self.unused_state()
-            self.state._protected_uuid_pending = self.initial['journal_sha256'] is not None
+            self.state._protected_uuid_pending = (self.initial['journal_sha256'] is not None
+                                                   or self.allow_initial_expected_uuid())
             self.preparing = self.initial['journal_sha256'] is None
             # The root ledger authorizes the first empty control journal exactly
             # once. Missing or changed state after that is never initialized.
@@ -149,6 +153,10 @@ class ApprovedBeacon(Beacon):
         except Exception as exc:
             self.state.fail(getattr(exc, 'code', 'station-binding-unavailable'))
         return super().open(prepare)
+
+    def allow_initial_expected_uuid(self):
+        # The root-installed expectation was checked against bootstrap before begin.
+        return True
 
     def initial_journal(self, binding):
         require(binding['fingerprint'] == self.expected['fingerprint'],
