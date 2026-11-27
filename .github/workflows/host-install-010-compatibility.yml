@@ -59,9 +59,11 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install ./companions/host-identify 'pytest>=8,<10'
           python -m pip install --no-deps ./companions/host-install
-          python -m pip install --no-deps ./companions/box-control/box-control
           python -m pip install --no-deps .
+          # Check the deployed beacon closure, before adding the historical
+          # optional controller test fixture (not used by the beacon profile).
           python -m pip check
+          python -m pip install --no-deps ./companions/box-control/box-control
 
       - name: Confirm selected component versions
         run: |
